@@ -1,0 +1,22 @@
+llm:
+  provider: anthropic
+  model: claude-sonnet-4-6
+  max_tokens: 4096
+
+database:
+  backend: postgresql
+  pool_size: 5
+
+memory:
+  backend: faiss
+  embedding_model: all-MiniLM-L6-v2
+  embedding_dimension: 384
+
+cache:
+  backend: memory
+  default_ttl: 300
+
+security:
+  rate_limit_per_minute: 60
+  cors_origins:
+    - "*"
