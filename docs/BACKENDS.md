@@ -280,11 +280,11 @@ from assets.backends import get_storage_backend
 
 async def migrate_to_s3():
     local_path = Path("./storage")
-    
+
     # Switch to S3
     os.environ["STORAGE_BACKEND"] = "s3"
     s3_storage = get_storage_backend()
-    
+
     # Upload all local files
     for file_path in local_path.rglob("*"):
         if file_path.is_file():

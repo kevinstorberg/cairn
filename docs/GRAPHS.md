@@ -42,16 +42,16 @@ def build_my_graph():
     config = load_graph_config("my_graph")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
     llm = build_llm(config.model, tools)
-    
+
     def process(state: MyGraphState):
         response = llm.invoke(state["messages"])
         return {"messages": [response]}
-    
+
     graph = StateGraph(MyGraphState)
     graph.add_node("process", process)
     graph.set_entry_point("process")
     graph.add_edge("process", END)
-    
+
     return graph.compile()
 
 # 3. src/routes/my_graph.py
@@ -166,10 +166,10 @@ from src.graphs.base import BaseGraphState
 
 class MyGraphState(BaseGraphState):
     """State for my_graph."""
-    
+
     # Messages (inherited from BaseGraphState)
     # messages: Annotated[list[BaseMessage], add_messages]
-    
+
     # Custom fields
     user_id: str = ""
     query: str = ""
@@ -193,26 +193,26 @@ from src.tools.context import ToolContext
 def build_my_graph():
     # 1. Load configuration
     config = load_graph_config("my_graph")
-    
+
     # 2. Load tools
     context = ToolContext.from_graph_config(config)
     tools = load_tools(config.tools, context)
-    
+
     # 3. Build LLM
     llm = build_llm(config.model, tools)
-    
+
     # 4. Define nodes
     def process_node(state: MyGraphState):
         messages = state["messages"]
         response = llm.invoke(messages)
         return {"messages": [response]}
-    
+
     # 5. Build graph
     graph = StateGraph(MyGraphState)
     graph.add_node("process", process_node)
     graph.set_entry_point("process")
     graph.add_edge("process", END)
-    
+
     return graph.compile()
 ```
 
@@ -223,37 +223,37 @@ def build_complex_graph():
     config = load_graph_config("complex_graph")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
     llm = build_llm(config.model, tools)
-    
+
     # Node 1: Validate input
     def validate(state: ComplexState):
         if not state["query"]:
             return {"error": "Query is required"}
         return {"validated": True}
-    
+
     # Node 2: Search
     def search(state: ComplexState):
         # Use tools directly or via LLM
         results = perform_search(state["query"])
         return {"results": results}
-    
+
     # Node 3: Summarize with LLM
     def summarize(state: ComplexState):
         prompt = f"Summarize these results: {state['results']}"
         response = llm.invoke([HumanMessage(content=prompt)])
         return {"summary": response.content}
-    
+
     # Conditional edge
     def should_search(state: ComplexState):
         if state.get("error"):
             return "end"
         return "search"
-    
+
     # Build graph
     graph = StateGraph(ComplexState)
     graph.add_node("validate", validate)
     graph.add_node("search", search)
     graph.add_node("summarize", summarize)
-    
+
     graph.set_entry_point("validate")
     graph.add_conditional_edges("validate", should_search, {
         "search": "search",
@@ -261,7 +261,7 @@ def build_complex_graph():
     })
     graph.add_edge("search", "summarize")
     graph.add_edge("summarize", END)
-    
+
     return graph.compile()
 ```
 
@@ -277,7 +277,7 @@ def build_complex_graph():
 def my_node(state: MyGraphState):
     # Read from state
     current_count = state.get("count", 0)
-    
+
     # Update state
     return {
         "count": current_count + 1,
@@ -294,7 +294,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 def my_node(state: MyGraphState):
     messages = state["messages"]
-    
+
     # Add new message
     return {
         "messages": [AIMessage(content="Response")]
@@ -318,10 +318,10 @@ def merge_dicts(current: dict, update: dict) -> dict:
 class MyGraphState(BaseGraphState):
     # List: append
     results: Annotated[list[dict], add] = []
-    
+
     # Dict: merge
     metadata: Annotated[dict, merge_dicts] = {}
-    
+
     # Replace (default)
     count: int = 0
 ```
@@ -349,13 +349,13 @@ def llm_node(state: MyGraphState):
 def agent_node(state: MyGraphState):
     llm = build_llm(config.model, tools)  # Tools bound to LLM
     response = llm.invoke(state["messages"])
-    
+
     # If LLM called tools, response includes tool_calls
     if response.tool_calls:
         # Execute tools and add results to messages
         tool_messages = execute_tools(response.tool_calls, tools)
         return {"messages": [response] + tool_messages}
-    
+
     return {"messages": [response]}
 ```
 
@@ -374,7 +374,7 @@ def db_node(state: MyGraphState):
             result = await session.execute(select(User).where(User.id == state["user_id"]))
             user = result.scalar_one_or_none()
             return {"user": user.to_dict() if user else None}
-    
+
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(_query())
 ```
@@ -391,20 +391,20 @@ def cached_node(state: MyGraphState):
     async def _cached():
         cache = get_cache_backend()
         cache_key = f"result:{state['query']}"
-        
+
         # Check cache
         cached = await cache.get(cache_key)
         if cached:
             return {"result": cached, "from_cache": True}
-        
+
         # Compute result
         result = expensive_operation(state["query"])
-        
+
         # Cache it
         await cache.set(cache_key, result, ttl=3600)
-        
+
         return {"result": result, "from_cache": False}
-    
+
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(_cached())
 ```
@@ -438,16 +438,16 @@ from src.tools.context import ToolContext
 
 def build_my_graph():
     config = load_graph_config("my_graph")
-    
+
     # Create tool context
     context = ToolContext.from_graph_config(config)
-    
+
     # Load tools specified in config
     tools = load_tools(config.tools, context)
-    
+
     # Bind to LLM
     llm = build_llm(config.model, tools)
-    
+
     # Now LLM can call tools
     ...
 ```
@@ -460,18 +460,18 @@ def build_my_graph():
 def build_conditional_graph():
     config = load_graph_config("conditional")
     context = ToolContext.from_graph_config(config)
-    
+
     def agent_node(state: ConditionalState):
         # Select tools based on state
         if state["mode"] == "search":
             tools = load_tools(["search_documents"], context)
         else:
             tools = load_tools(["create_todo"], context)
-        
+
         llm = build_llm(config.model, tools)
         response = llm.invoke(state["messages"])
         return {"messages": [response]}
-    
+
     ...
 ```
 
@@ -483,7 +483,7 @@ def build_conditional_graph():
 def process_tools(state: MyGraphState):
     llm = build_llm(config.model, tools)
     response = llm.invoke(state["messages"])
-    
+
     tool_results = []
     if response.tool_calls:
         for tool_call in response.tool_calls:
@@ -492,7 +492,7 @@ def process_tools(state: MyGraphState):
                 "tool": tool_call["name"],
                 "result": result
             })
-    
+
     return {
         "messages": [response],
         "tool_results": tool_results
@@ -514,16 +514,16 @@ from langchain_core.messages import HumanMessage
 async def test_my_graph():
     # Build graph
     graph = build_my_graph()
-    
+
     # Prepare input
     initial_state = {
         "messages": [HumanMessage(content="Test input")],
         "user_id": "user123"
     }
-    
+
     # Execute
     result = await graph.ainvoke(initial_state)
-    
+
     # Assert
     assert "result" in result
     assert result["result"] is not None
@@ -540,13 +540,13 @@ async def test_with_mocked_llm():
     # Mock LLM response
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = AIMessage(content="Mocked response")
-    
+
     with patch("src.graphs.my_graph.build_llm", return_value=mock_llm):
         graph = build_my_graph()
         result = await graph.ainvoke({
             "messages": [HumanMessage(content="Test")]
         })
-        
+
         assert result["messages"][-1].content == "Mocked response"
 ```
 
@@ -555,12 +555,12 @@ async def test_with_mocked_llm():
 ```python
 def test_validate_node():
     from src.graphs.complex_graph import validate
-    
+
     # Test valid input
     state = {"query": "test query"}
     result = validate(state)
     assert result["validated"] is True
-    
+
     # Test invalid input
     state = {"query": ""}
     result = validate(state)
@@ -573,19 +573,19 @@ def test_validate_node():
 @pytest.mark.asyncio
 async def test_graph_with_db(test_session, clean_db):
     from db.models.todo import Todo
-    
+
     # Setup test data
     todo = Todo(title="Test", user_id="user123")
     test_session.add(todo)
     await test_session.commit()
-    
+
     # Run graph
     graph = build_my_graph()
     result = await graph.ainvoke({
         "messages": [HumanMessage(content="Get todos")],
         "user_id": "user123"
     })
-    
+
     # Assert
     assert "todos" in result
     assert len(result["todos"]) > 0
@@ -689,23 +689,23 @@ def build_streaming_graph():
     config = load_graph_config("streaming")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
     llm = build_llm(config.model, tools)
-    
+
     async def stream_node(state: StreamingState):
         messages = state["messages"]
         chunks = []
-        
+
         async for chunk in llm.astream(messages):
             chunks.append(chunk.content)
             yield {"chunk": chunk.content}
-        
+
         # Final state
         return {"messages": [AIMessage(content="".join(chunks))]}
-    
+
     graph = StateGraph(StreamingState)
     graph.add_node("stream", stream_node)
     graph.set_entry_point("stream")
     graph.add_edge("stream", END)
-    
+
     return graph.compile()
 ```
 
@@ -721,12 +721,12 @@ def build_subgraph():
     subgraph.set_entry_point("process")
     subgraph.add_edge("process", END)
     compiled_sub = subgraph.compile()
-    
+
     # Use in main graph
     def call_subgraph(state: MainState):
         result = compiled_sub.invoke({"input": state["input"]})
         return {"subgraph_result": result}
-    
+
     main = StateGraph(MainState)
     main.add_node("subgraph", call_subgraph)
     # ... rest of main graph
@@ -741,12 +741,12 @@ from langgraph.checkpoint import MemorySaver
 
 def build_checkpointed_graph():
     config = load_graph_config("checkpointed")
-    
+
     # ... define nodes ...
-    
+
     graph = StateGraph(CheckpointedState)
     # ... add nodes and edges ...
-    
+
     # Compile with checkpointer
     checkpointer = MemorySaver()
     return graph.compile(checkpointer=checkpointer)
@@ -801,7 +801,7 @@ def sync_node(state):
     async def _async():
         result = await async_operation()
         return {"result": result}
-    
+
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(_async())
 ```

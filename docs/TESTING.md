@@ -100,10 +100,10 @@ async def test_create_todo(client, clean_db):
         "title": "Test Todo",
         "description": "Test description"
     }
-    
+
     # Act
     response = await client.post("/todos", json=todo_data)
-    
+
     # Assert
     assert response.status_code == 200
     data = response.json()
@@ -119,11 +119,11 @@ async def test_todo_persisted_to_db(client, test_session, clean_db):
     # Create via API
     response = await client.post("/todos", json={"title": "Test"})
     todo_id = response.json()["id"]
-    
+
     # Verify in database
     from sqlalchemy import select
     from db.models.todo import Todo
-    
+
     result = await test_session.execute(
         select(Todo).where(Todo.id == todo_id)
     )
@@ -152,13 +152,13 @@ async def test_validation_error(client):
 @pytest.mark.asyncio
 async def test_database_operations(test_session, clean_db):
     from db.models.todo import Todo, TodoStatus
-    
+
     # Create
     todo = Todo(title="Test", status=TodoStatus.PENDING)
     test_session.add(todo)
     await test_session.commit()
     await test_session.refresh(todo)
-    
+
     # Read
     from sqlalchemy import select
     result = await test_session.execute(
@@ -166,11 +166,11 @@ async def test_database_operations(test_session, clean_db):
     )
     fetched = result.scalar_one()
     assert fetched.title == "Test"
-    
+
     # Update
     fetched.status = TodoStatus.COMPLETED
     await test_session.commit()
-    
+
     # Delete
     await test_session.delete(fetched)
     await test_session.commit()
@@ -184,15 +184,15 @@ async def test_parent_child_relationship(test_session, clean_db):
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
     from db.models.todo import Todo
-    
+
     # Create parent and children
     parent = Todo(title="Parent")
     child1 = Todo(title="Child 1", parent_id=parent.id)
     child2 = Todo(title="Child 2", parent_id=parent.id)
-    
+
     test_session.add_all([parent, child1, child2])
     await test_session.commit()
-    
+
     # Query with eager loading
     result = await test_session.execute(
         select(Todo)
@@ -200,7 +200,7 @@ async def test_parent_child_relationship(test_session, clean_db):
         .options(selectinload(Todo.subtasks))
     )
     fetched_parent = result.scalar_one()
-    
+
     assert len(fetched_parent.subtasks) == 2
 ```
 
@@ -267,7 +267,7 @@ from langchain_core.messages import AIMessage
 async def test_with_mocked_llm(client):
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value = AIMessage(content="Mocked response")
-    
+
     with patch("src.graphs.breakdown.build_llm", return_value=mock_llm):
         response = await client.post("/todos/123/breakdown")
         assert response.status_code == 200
@@ -280,16 +280,16 @@ async def test_with_mocked_llm(client):
 async def test_with_mocked_memory():
     from memory.backends import reset_backend
     from unittest.mock import AsyncMock
-    
+
     # Reset singleton
     reset_backend()
-    
+
     # Mock the backend
     mock_backend = AsyncMock()
     mock_backend.search.return_value = [
         {"id": "1", "text": "test", "score": 0.9}
     ]
-    
+
     with patch("memory.backends.get_backend", return_value=mock_backend):
         # Your test here
         pass
@@ -301,11 +301,11 @@ async def test_with_mocked_memory():
 @pytest.mark.asyncio
 async def test_with_mocked_s3():
     from unittest.mock import AsyncMock
-    
+
     mock_storage = AsyncMock()
     mock_storage.upload.return_value = None
     mock_storage.download.return_value = b"test content"
-    
+
     with patch("assets.backends.get_storage_backend", return_value=mock_storage):
         # Your test here
         pass
@@ -317,10 +317,10 @@ async def test_with_mocked_s3():
 @pytest.mark.asyncio
 async def test_with_mocked_cache():
     from unittest.mock import AsyncMock
-    
+
     mock_cache = AsyncMock()
     mock_cache.get.return_value = "cached_value"
-    
+
     with patch("cache.backends.get_cache_backend", return_value=mock_cache):
         # Your test here
         pass
@@ -339,19 +339,19 @@ from src.settings import get_settings, reset_settings
 def test_production_settings():
     # Save original
     original_env = os.environ.get("APP_ENV")
-    
+
     try:
         # Change environment
         os.environ["APP_ENV"] = "production"
         os.environ["DATABASE_URL_PRODUCTION"] = "postgresql://..."
-        
+
         # Reset settings cache
         reset_settings()
-        
+
         # Test
         settings = get_settings()
         assert settings.APP_ENV == "production"
-        
+
     finally:
         # Restore
         if original_env:
@@ -367,12 +367,12 @@ def test_production_settings():
 @pytest.mark.asyncio
 async def test_background_job():
     from src.jobs.daily_summary import DailySummaryJob
-    
+
     job = DailySummaryJob()
-    
+
     # Execute job
     await job.execute()
-    
+
     # Verify results
     # ...
 ```
@@ -383,24 +383,24 @@ async def test_background_job():
 @pytest.mark.asyncio
 async def test_websocket_connection():
     from src.websockets.manager import ConnectionManager
-    
+
     manager = ConnectionManager()
-    
+
     class MockWebSocket:
         async def accept(self):
             pass
-        
+
         async def send_json(self, data):
             self.last_message = data
-    
+
     ws = MockWebSocket()
     await manager.connect(ws, "test_room")
-    
+
     # Broadcast message
     await manager.broadcast("test_room", {"type": "test", "data": "hello"})
-    
+
     assert ws.last_message["type"] == "test"
-    
+
     # Cleanup
     manager.disconnect(ws, "test_room")
 ```
@@ -412,15 +412,15 @@ async def test_websocket_connection():
 async def sample_todos(test_session):
     """Create sample todos for testing."""
     from db.models.todo import Todo
-    
+
     todos = [
         Todo(title=f"Todo {i}") for i in range(3)
     ]
     test_session.add_all(todos)
     await test_session.commit()
-    
+
     yield todos
-    
+
     # Cleanup happens automatically via clean_db fixture
 ```
 

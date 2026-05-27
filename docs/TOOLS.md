@@ -32,20 +32,20 @@ from src.tools.context import ToolContext
 @register_tool("get_user")
 def create_get_user_tool(context: ToolContext):
     """Create a tool that fetches user information."""
-    
+
     @tool
     def get_user(user_id: str) -> dict:
         """Get user by ID.
-        
+
         Args:
             user_id: The user ID to fetch
-            
+
         Returns:
             User information dictionary
         """
         # Tool implementation here
         return {"id": user_id, "name": "John Doe"}
-    
+
     return get_user
 ```
 
@@ -89,13 +89,13 @@ def create_tool(context: ToolContext):
     # Access context
     config = context.config
     settings = context.settings
-    
+
     # Define the actual tool
     @tool
     def tool_name(arg: str) -> str:
         """Tool description for LLM."""
         return f"Result: {arg}"
-    
+
     return tool_name
 ```
 
@@ -113,12 +113,12 @@ def create_premium_tool(context: ToolContext):
     """Only available for premium users."""
     if not context.config.get("enable_premium_features"):
         return None  # Tool disabled
-    
+
     @tool
     def premium_feature() -> str:
         """Premium feature."""
         return "Premium result"
-    
+
     return premium_feature
 ```
 
@@ -148,19 +148,19 @@ from src.tools.context import ToolContext
 @register_tool("smart_search")
 def create_search_tool(context: ToolContext):
     """Create search tool with config-based settings."""
-    
+
     # Access configuration
     max_results = context.config.tools_config.get("max_results", 10)
-    
+
     # Access settings
     api_key = context.settings.ANTHROPIC_API_KEY if context.settings else None
-    
+
     @tool
     def smart_search(query: str) -> list[dict]:
         """Search with smart ranking."""
         # Use config values
         return search_with_limit(query, limit=max_results)
-    
+
     return smart_search
 ```
 
@@ -202,41 +202,41 @@ from db.connection import get_session_factory
 @register_tool("get_todo")
 def create_get_todo_tool(context: ToolContext):
     """Create tool that fetches todo from database."""
-    
+
     @tool
     def get_todo(todo_id: str) -> dict:
         """Get todo by ID from database.
-        
+
         Args:
             todo_id: The todo ID to fetch
-            
+
         Returns:
             Todo information dictionary
         """
         async def _fetch():
             from sqlalchemy import select
             from db.models.todo import Todo
-            
+
             factory = get_session_factory()
             async with factory() as session:
                 result = await session.execute(
                     select(Todo).where(Todo.id == todo_id)
                 )
                 todo = result.scalar_one_or_none()
-                
+
                 if not todo:
                     return {"error": "Todo not found"}
-                
+
                 return {
                     "id": str(todo.id),
                     "title": todo.title,
                     "status": todo.status.value
                 }
-        
+
         # Run async code in sync context
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(_fetch())
-    
+
     return get_todo
 ```
 
@@ -248,21 +248,21 @@ def create_get_todo_tool(context: ToolContext):
 @register_tool("create_todo")
 def create_create_todo_tool(context: ToolContext):
     """Create tool that adds todo to database."""
-    
+
     @tool
     def create_todo(title: str, description: str = "") -> dict:
         """Create a new todo.
-        
+
         Args:
             title: Todo title
             description: Optional description
-            
+
         Returns:
             Created todo information
         """
         async def _create():
             from db.models.todo import Todo, TodoStatus
-            
+
             factory = get_session_factory()
             async with factory() as session:
                 todo = Todo(
@@ -273,16 +273,16 @@ def create_create_todo_tool(context: ToolContext):
                 session.add(todo)
                 await session.commit()
                 await session.refresh(todo)
-                
+
                 return {
                     "id": str(todo.id),
                     "title": todo.title,
                     "status": todo.status.value
                 }
-        
+
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(_create())
-    
+
     return create_todo
 ```
 
@@ -311,14 +311,14 @@ def risky_operation(input: str) -> dict:
 @tool
 def validated_tool(user_id: str, amount: float) -> dict:
     """Tool with input validation."""
-    
+
     # Validate inputs
     if not user_id:
         return {"error": "user_id is required"}
-    
+
     if amount <= 0:
         return {"error": "amount must be positive"}
-    
+
     # Process
     try:
         result = process_payment(user_id, amount)
@@ -337,12 +337,12 @@ logger = logging.getLogger(__name__)
 @register_tool("logged_tool")
 def create_logged_tool(context: ToolContext):
     """Tool with logging."""
-    
+
     @tool
     def logged_tool(input: str) -> dict:
         """Tool that logs execution."""
         logger.info(f"Tool called with input: {input}")
-        
+
         try:
             result = process(input)
             logger.info(f"Tool succeeded: {result}")
@@ -350,7 +350,7 @@ def create_logged_tool(context: ToolContext):
         except Exception as e:
             logger.error(f"Tool failed: {e}", exc_info=True)
             return {"error": str(e)}
-    
+
     return logged_tool
 ```
 
@@ -370,16 +370,16 @@ def test_get_user_tool():
     # Setup
     config = load_default_config()
     context = ToolContext.from_graph_config(config)
-    
+
     # Load tool
     tools = load_tools(["get_user"], context)
     assert len(tools) == 1
-    
+
     get_user_tool = tools[0]
-    
+
     # Execute
     result = get_user_tool.invoke({"user_id": "123"})
-    
+
     # Assert
     assert result["id"] == "123"
     assert "name" in result
@@ -395,25 +395,25 @@ async def test_create_todo_tool(test_session, clean_db):
     from config.loader import load_default_config
     from sqlalchemy import select
     from db.models.todo import Todo
-    
+
     # Setup
     config = load_default_config()
     context = ToolContext.from_graph_config(config)
-    
+
     # Load tool
     tools = load_tools(["create_todo"], context)
     create_todo = tools[0]
-    
+
     # Execute
     result = create_todo.invoke({
         "title": "Test Todo",
         "description": "Test description"
     })
-    
+
     # Assert result
     assert result["title"] == "Test Todo"
     todo_id = result["id"]
-    
+
     # Verify in database
     db_result = await test_session.execute(
         select(Todo).where(Todo.id == todo_id)
@@ -431,19 +431,19 @@ def test_tool_with_mocked_service():
     from src.tools import load_tools
     from src.tools.context import ToolContext
     from config.loader import load_default_config
-    
+
     # Setup
     config = load_default_config()
     context = ToolContext.from_graph_config(config)
-    
+
     # Mock external service
     with patch("src.services.external.call_api") as mock_api:
         mock_api.return_value = {"data": "mocked"}
-        
+
         # Load and execute tool
         tools = load_tools(["external_tool"], context)
         result = tools[0].invoke({"param": "value"})
-        
+
         # Verify
         assert result["data"] == "mocked"
         mock_api.assert_called_once()
@@ -498,17 +498,17 @@ def make_tool(context):  # Doesn't match tool name
 @tool
 def example_tool(param1: str, param2: int = 10) -> dict:
     """Brief description of what the tool does.
-    
+
     Longer explanation if needed. This helps the LLM understand
     when and how to use this tool.
-    
+
     Args:
         param1: Description of param1
         param2: Description of param2 (optional)
-        
+
     Returns:
         Description of return value structure
-        
+
     Example:
         >>> example_tool("value", param2=20)
         {"result": "success"}
@@ -526,28 +526,28 @@ def example_tool(param1: str, param2: int = 10) -> dict:
 @register_tool("cached_lookup")
 def create_cached_tool(context: ToolContext):
     """Tool that caches results."""
-    
+
     @tool
     async def cached_lookup(query: str) -> dict:
         """Lookup with caching."""
         from cache.backends import get_cache_backend
-        
+
         cache = get_cache_backend()
         cache_key = f"lookup:{query}"
-        
+
         # Check cache
         cached = await cache.get(cache_key)
         if cached:
             return {"result": cached, "from_cache": True}
-        
+
         # Compute result
         result = expensive_operation(query)
-        
+
         # Cache it
         await cache.set(cache_key, result, ttl=3600)
-        
+
         return {"result": result, "from_cache": False}
-    
+
     return cached_lookup
 ```
 
@@ -557,27 +557,27 @@ def create_cached_tool(context: ToolContext):
 @register_tool("semantic_search")
 def create_search_tool(context: ToolContext):
     """Tool that searches vector embeddings."""
-    
+
     @tool
     def semantic_search(query: str, limit: int = 5) -> list[dict]:
         """Search using semantic similarity."""
         from memory.backends import get_backend
         from src.services.embeddings import EmbeddingsService
-        
+
         async def _search():
             # Generate query embedding
             embeddings = EmbeddingsService()
             query_embedding = (await embeddings.embed([query]))[0]
-            
+
             # Search
             backend = get_backend()
             results = await backend.search(query_embedding, limit=limit)
-            
+
             return results
-        
+
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(_search())
-    
+
     return semantic_search
 ```
 

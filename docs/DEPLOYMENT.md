@@ -264,7 +264,7 @@ secrets:
 ```python
 class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = Field(default="")
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Load from file if path provided
@@ -286,7 +286,7 @@ def load_secrets():
     client = boto3.client('secretsmanager', region_name='us-east-1')
     response = client.get_secret_value(SecretId='cairn/production')
     secrets = json.loads(response['SecretString'])
-    
+
     for key, value in secrets.items():
         os.environ[key] = value
 ```
@@ -301,7 +301,7 @@ async def lifespan(app: FastAPI):
     # Load secrets before anything else
     if get_settings().APP_ENV == "production":
         load_secrets()
-    
+
     # ... rest of startup
     yield
 ```
@@ -632,11 +632,11 @@ from assets.backends import get_storage_backend
 
 async def migrate_to_s3():
     local_path = Path("./storage")
-    
+
     # Switch to S3
     os.environ["STORAGE_BACKEND"] = "s3"
     s3_storage = get_storage_backend()
-    
+
     # Upload all local files
     for file_path in local_path.rglob("*"):
         if file_path.is_file():
@@ -682,7 +682,7 @@ async def detailed_health():
         "cache": "unknown",
         "memory": "unknown"
     }
-    
+
     # Check database
     try:
         factory = get_session_factory()
@@ -692,7 +692,7 @@ async def detailed_health():
     except Exception as e:
         status["database"] = f"error: {str(e)}"
         status["status"] = "degraded"
-    
+
     # Check cache
     try:
         cache = get_cache_backend()
@@ -705,7 +705,7 @@ async def detailed_health():
     except Exception as e:
         status["cache"] = f"error: {str(e)}"
         status["status"] = "degraded"
-    
+
     # Check memory backend
     try:
         backend = get_backend()
@@ -714,7 +714,7 @@ async def detailed_health():
     except Exception as e:
         status["memory"] = f"error: {str(e)}"
         status["status"] = "degraded"
-    
+
     return status
 ```
 

@@ -1,7 +1,7 @@
 # Cairn Template: Issues to Fix in Main Branch
 
-**Generated**: 2026-05-27  
-**Source**: TODO app testing on `testing` branch  
+**Generated**: 2026-05-27
+**Source**: TODO app testing on `testing` branch
 **Purpose**: Actionable fixes needed before template is production-ready
 
 ---
@@ -44,7 +44,7 @@ from pathlib import Path
 def _auto_import_tools():
     """Auto-import all tool modules to trigger @register_tool decorators."""
     tools_dir = Path(__file__).parent
-    
+
     for _, module_name, _ in pkgutil.iter_modules([str(tools_dir)]):
         if module_name.startswith('_'):
             continue
@@ -77,7 +77,7 @@ def get_backend() -> MemoryBackend:
         return FAISSBackend()  # New instance every time
 ```
 
-**Impact**: 
+**Impact**:
 - Store embedding in request 1
 - Try to search in request 2
 - Get zero results because request 2 has a fresh, empty index
@@ -94,10 +94,10 @@ _backend_instance: MemoryBackend | None = None
 def get_backend() -> MemoryBackend:
     """Get or create singleton memory backend instance."""
     global _backend_instance
-    
+
     if _backend_instance is None:
         backend_name = settings.MEMORY_BACKEND
-        
+
         if backend_name == "faiss":
             from memory.backends.faiss import FAISSBackend
             _backend_instance = FAISSBackend()
@@ -109,7 +109,7 @@ def get_backend() -> MemoryBackend:
             _backend_instance = PineconeBackend()
         else:
             raise ValueError(f"Unknown memory backend: {backend_name}")
-    
+
     return _backend_instance
 
 def reset_backend():
@@ -148,7 +148,7 @@ def get_memory_backend(request: Request) -> MemoryBackend:
 - `MissingGreenlet` errors
 - Event loop conflicts
 
-**Root Cause**: 
+**Root Cause**:
 1. Test fixtures create their own `AsyncEngine` via `create_async_engine()`
 2. FastAPI app uses `get_session_factory()` which creates a separate engine
 3. Multiple engines conflict over same asyncpg connection pool
@@ -182,7 +182,7 @@ async def test_session(test_engine):
         expire_on_commit=False,
         class_=AsyncSession
     )
-    
+
     async with async_session_maker() as session:
         yield session
 
@@ -191,9 +191,9 @@ def app_with_test_db(test_engine):
     """Create app with overridden database dependency."""
     from src.app import create_app
     from db.connection import get_session
-    
+
     app = create_app()
-    
+
     async def override_get_session():
         async_session_maker = async_sessionmaker(
             test_engine,
@@ -202,7 +202,7 @@ def app_with_test_db(test_engine):
         )
         async with async_session_maker() as session:
             yield session
-    
+
     app.dependency_overrides[get_session] = override_get_session
     return app
 
@@ -254,7 +254,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # ... existing code ...
-    
+
     model_config = SettingsConfigDict(
         env_file=".env.default",
         env_file_encoding="utf-8",
@@ -281,7 +281,7 @@ from src.settings import get_settings, reset_settings
 def test_production_environment():
     os.environ["APP_ENV"] = "production"
     reset_settings()  # Clear cache
-    
+
     settings = get_settings()
     assert settings.APP_ENV == "production"
 ```
@@ -337,7 +337,7 @@ embedding: Mapped[list[float]] = mapped_column(ARRAY(Float))
 ```python
 class Todo(Base):
     parent_id: Mapped[str | None] = mapped_column(ForeignKey("todos.id"))
-    
+
     subtasks: Mapped[list["Todo"]] = relationship(
         "Todo",
         back_populates="parent",
@@ -427,7 +427,7 @@ def get_todo(todo_id: str) -> dict:
         factory = get_session_factory()
         async with factory() as session:
             # async code
-    
+
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(_fetch())  # Now works
 ```
@@ -467,12 +467,12 @@ langgraph = ">=0.2.60"  # Version with Python 3.11+ fixes
 # src/app.py
 def create_app() -> FastAPI:
     app = FastAPI(lifespan=lifespan)
-    
+
     # Register routes BEFORE returning
     app.include_router(health_router)
     app.include_router(todos_router)
     # ... other routers
-    
+
     return app
 ```
 

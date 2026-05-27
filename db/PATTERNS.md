@@ -39,10 +39,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 class Todo(Base):
     __tablename__ = "todos"
-    
+
     id: Mapped[str] = mapped_column(primary_key=True)
     parent_id: Mapped[str | None] = mapped_column(ForeignKey("todos.id"), nullable=True)
-    
+
     # Parent → Children relationship
     subtasks: Mapped[list["Todo"]] = relationship(
         "Todo",
@@ -50,8 +50,8 @@ class Todo(Base):
         foreign_keys="[Todo.parent_id]",  # ✅ Explicit
         lazy="select"
     )
-    
-    # Child → Parent relationship  
+
+    # Child → Parent relationship
     parent: Mapped["Todo | None"] = relationship(
         "Todo",
         back_populates="subtasks",
@@ -82,7 +82,7 @@ class TodoStatus(str, Enum):
 
 class Todo(Base):
     __tablename__ = "todos"
-    
+
     # Correct enum declaration
     status: Mapped[TodoStatus] = mapped_column(
         SQLEnum(TodoStatus, values_callable=lambda x: [e.value for e in x]),  # ✅ Store values

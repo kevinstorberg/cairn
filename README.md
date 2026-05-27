@@ -66,7 +66,7 @@ Three-level hierarchy with deep merge (later layers override earlier):
 
 ```
 1. .env.default → .env.{APP_ENV}              Environment variables
-2. config/default.yaml → config/graphs/*.yaml  YAML configuration  
+2. config/default.yaml → config/graphs/*.yaml  YAML configuration
 3. Runtime overrides                           Explicit parameters
 ```
 
