@@ -1,6 +1,12 @@
+<img src="assets/static/logo.svg" alt="Cairn" width="120" align="left" style="margin-right: 20px; margin-bottom: 10px;"/>
+
 # Cairn
 
-Reusable FastAPI template for agentic Python applications with LangGraph.
+Production-ready FastAPI template for building agentic Python applications with LangGraph.
+
+**This is a template repository.** Clone it to start your own project with batteries-included infrastructure for agents, tools, vector memory, caching, and background jobs.
+
+<br clear="left"/>
 
 ## Quick Start
 
@@ -25,38 +31,45 @@ make check           # lint + test
 ## Structure
 
 ```
-config/     YAML config, prompts, loader
-db/         SQLAlchemy models, Alembic migrations
-memory/     Vector store backends (FAISS, pgvector, Pinecone)
-cache/      Key-value backends (in-memory, Redis)
-assets/     File storage backends (local, S3)
-lib/        Raw AWS clients
-scripts/    CLI scripts and DB seeding
-src/        Application code
-  agents/   LLM agent builders
-  evals/    LLM-as-judge framework
-  graphs/   LangGraph workflow factories
-  jobs/     Background job scheduler
-  models/   Pydantic schemas and state
-  policies/ RBAC authorization
-  routers/  FastAPI endpoints
-  security/ Auth and input validation
-  services/ Service registry and protocol
-  tools/    Tool registry and context
-  utils/    Logging, datetime, pagination, serialization
-  websockets/ Connection manager and WS endpoint
-tests/      Mirrors src/ structure
+config/          YAML config, prompts, loader
+  prompts/       Prompt template directory (load with config/prompts/loader.py)
+db/              SQLAlchemy models, Alembic migrations
+memory/          Vector store backends (FAISS, pgvector, Pinecone)
+cache/           Key-value backends (in-memory, Redis)
+assets/          File storage backends (local, S3) - template infrastructure
+lib/             Shared utilities (paths, singleton pattern)
+  cairn/         Cairn-specific utilities (singleton, stubs, paths)
+scripts/         CLI scripts and database seeding
+src/             Your application code
+  agents/        LLM agent builders
+  evals/         LLM-as-judge evaluation framework
+  graphs/        LangGraph workflow definitions
+  jobs/          Background job scheduler
+  models/        Pydantic schemas and state definitions
+  policies/      RBAC role-based authorization
+  routers/       FastAPI HTTP endpoints
+  security/      Authentication and request validation
+  services/      Service registry and lifecycle management
+  tools/         LangChain tool registry (auto-discovered)
+  utils/         Logging, datetime, pagination, serialization
+  websockets/    WebSocket connection manager
+tests/           Test suite mirroring src/ structure
+  conftest.py    Shared test fixtures (use these in your tests)
 ```
 
 ## Configuration
 
-Three-level hierarchy with deep merge:
+Three-level hierarchy with deep merge (later layers override earlier):
 
 ```
-.env.default → .env.{APP_ENV}          (environment variables)
-config/default.yaml → config/graphs/X.yaml  (YAML config)
-Runtime overrides                        (explicit params)
+1. .env.default → .env.{APP_ENV}              Environment variables
+2. config/default.yaml → config/graphs/*.yaml  YAML configuration  
+3. Runtime overrides                           Explicit parameters
 ```
+
+**Environment Variables:** Set `APP_ENV=development` (default), `production`, or `test`. Loads corresponding `.env.{APP_ENV}` file.
+
+**YAML Config:** Base settings in `config/default.yaml`, graph-specific overrides in `config/graphs/`. All config imported via `load_default_config()` or `load_graph_config(name)`.
 
 ## Optional Dependencies
 
@@ -81,16 +94,24 @@ Comprehensive guides for building applications with Cairn:
 ## Key Features
 
 ### Auto-Discovery Tools
-Create a tool in `src/tools/my_tool.py` and it's automatically registered - no manual imports needed.
+Create a tool in `src/tools/my_tool.py` with `@register_tool` and it's automatically available - no manual imports. See `src/tools/test_auto_import.py` for a complete example.
 
 ### Singleton Backends
-Memory, cache, and storage backends use singleton pattern - data persists across requests.
+Memory, cache, and storage backends use singleton pattern - instances persist across requests for performance.
 
 ### Config-Driven Graphs
-Define model, tools, and settings in YAML - swap configurations without code changes.
+Define LLM model, tools, and settings in YAML - swap entire configurations without code changes.
 
 ### Test Infrastructure
-Comprehensive fixtures with FastAPI dependency overrides - tests run in parallel safely.
+Production-quality test fixtures in `tests/conftest.py`: database setup, FastAPI client, session management. Ready for your integration tests.
+
+### Template Utilities (Unused by Default)
+- **`tests/conftest.py`** - Pytest fixtures for database and API testing
+- **`config/prompts/loader.py`** - Load LLM prompts from .txt files
+- **`src/routers/base.py`** - Router factory for consistent configuration
+- **`assets/`** - File storage abstraction (local/S3)
+
+These are intentionally unused by the template's example code but documented and ready for your application to activate.
 
 ### Multi-Environment Support
-`.env.{APP_ENV}` hierarchy with environment switching and settings caching.
+`.env.{APP_ENV}` hierarchy with automatic environment detection and config merging.

@@ -1,3 +1,15 @@
+"""Pytest fixtures for template users.
+
+NOTE: These fixtures are intentionally unused by the template's own tests.
+The template tests demonstrate patterns by creating their own local fixtures.
+When you clone this template and build your application, USE THESE FIXTURES
+instead of duplicating test setup code.
+
+Example usage in your tests:
+    def test_my_feature(client):
+        response = await client.get("/my-endpoint")
+        assert response.status_code == 200
+"""
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -10,13 +22,20 @@ from src.app import create_app
 
 @pytest.fixture
 def app():
-    """Create FastAPI app instance."""
+    """Create FastAPI app instance.
+
+    Template fixture: Use this when you need a basic app without database setup.
+    """
     return create_app()
 
 
 @pytest.fixture(scope="function")
 def test_engine():
-    """Create test database engine with no connection pooling."""
+    """Create test database engine with no connection pooling.
+
+    Template fixture: Provides a test database engine for your integration tests.
+    Uses NullPool to avoid connection sharing issues in tests.
+    """
     engine = create_async_engine(
         "postgresql+asyncpg://localhost:5432/cairn_test",
         echo=False,
@@ -29,7 +48,11 @@ def test_engine():
 
 @pytest_asyncio.fixture
 async def test_session(test_engine):
-    """Create test session with rollback after each test."""
+    """Create test session with rollback after each test.
+
+    Template fixture: Use this when you need direct database access in tests.
+    Automatically rolls back changes after each test to keep tests isolated.
+    """
     from db.connection import create_session_maker
 
     async_session_maker = create_session_maker(test_engine)
@@ -42,7 +65,11 @@ async def test_session(test_engine):
 
 @pytest.fixture
 def app_with_test_db(test_engine):
-    """Create app with overridden database dependency."""
+    """Create app with overridden database dependency.
+
+    Template fixture: Use this when testing API endpoints that need database access.
+    Overrides the production database with the test database automatically.
+    """
     from db.connection import create_session_maker
 
     app = create_app()
@@ -61,7 +88,16 @@ def app_with_test_db(test_engine):
 
 @pytest_asyncio.fixture
 async def client(app_with_test_db):
-    """Create async HTTP client for testing."""
+    """Create async HTTP client for testing.
+
+    Template fixture: The primary fixture for API integration tests.
+    Provides an httpx AsyncClient configured with the test database.
+
+    Example:
+        async def test_create_user(client):
+            response = await client.post("/users", json={"name": "Alice"})
+            assert response.status_code == 201
+    """
     async with AsyncClient(
         transport=ASGITransport(app=app_with_test_db),
         base_url="http://test"
@@ -71,7 +107,19 @@ async def client(app_with_test_db):
 
 @pytest_asyncio.fixture
 async def clean_db(test_session):
-    """Clean database before and after each test."""
+    """Clean database before and after each test.
+
+    Template fixture: Use this to ensure database isolation between tests.
+    Truncates tables before and after each test. Update the TRUNCATE statement
+    with your own table names as you add them.
+
+    Example:
+        async def test_user_creation(test_session, clean_db):
+            # Database is clean, test in isolation
+            user = User(name="Alice")
+            test_session.add(user)
+            await test_session.commit()
+    """
     from sqlalchemy import text
 
     # Cleanup before test

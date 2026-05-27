@@ -1,3 +1,17 @@
+"""Storage backend factory for template users.
+
+TEMPLATE INFRASTRUCTURE: Entry point for accessing file storage.
+Configure which backend to use in config/default.yaml:
+    storage:
+      backend: local  # or "s3"
+      local_path: ./storage
+
+Example usage:
+    from assets.backends import get_storage_backend
+
+    storage = get_storage_backend()
+    await storage.upload("files/document.pdf", pdf_bytes, "application/pdf")
+"""
 from assets.base import StorageBackend
 from config.loader import load_default_config
 
