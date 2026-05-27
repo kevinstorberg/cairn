@@ -1,4 +1,7 @@
 from lib.aws.base import AWSClientProtocol
+from lib.cairn.stubs import stub_method
+
+_STUB_MESSAGE = "S3Client requires `poetry install --with aws`"
 
 
 class S3Client(AWSClientProtocol):
@@ -13,11 +16,6 @@ class S3Client(AWSClientProtocol):
     async def close(self) -> None:
         self._client = None
 
-    async def upload(self, key: str, body: bytes, content_type: str = "application/octet-stream") -> str:
-        raise NotImplementedError("S3Client requires `poetry install --with aws`")
-
-    async def download(self, key: str) -> bytes:
-        raise NotImplementedError("S3Client requires `poetry install --with aws`")
-
-    async def delete(self, key: str) -> None:
-        raise NotImplementedError("S3Client requires `poetry install --with aws`")
+    upload = stub_method(_STUB_MESSAGE)
+    download = stub_method(_STUB_MESSAGE)
+    delete = stub_method(_STUB_MESSAGE)

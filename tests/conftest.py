@@ -30,11 +30,9 @@ def test_engine():
 @pytest_asyncio.fixture
 async def test_session(test_engine):
     """Create test session with rollback after each test."""
-    async_session_maker = async_sessionmaker(
-        test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
+    from db.connection import create_session_maker
+
+    async_session_maker = create_session_maker(test_engine)
 
     async with async_session_maker() as session:
         yield session
@@ -45,15 +43,13 @@ async def test_session(test_engine):
 @pytest.fixture
 def app_with_test_db(test_engine):
     """Create app with overridden database dependency."""
+    from db.connection import create_session_maker
+
     app = create_app()
 
     async def override_get_session():
         """Override get_session to use test engine."""
-        async_session_maker = async_sessionmaker(
-            test_engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-        )
+        async_session_maker = create_session_maker(test_engine)
         async with async_session_maker() as session:
             yield session
 

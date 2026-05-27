@@ -1,14 +1,10 @@
+from lib.cairn.stubs import stub_method
+
+_STUB_MESSAGE = "RedisCacheBackend requires `poetry install --with redis`"
 
 
 class RedisCacheBackend:
-    async def get(self, key: str) -> str | None:
-        raise NotImplementedError("RedisCacheBackend requires `poetry install --with redis`")
-
-    async def set(self, key: str, value: str, ttl: float | None = None) -> None:
-        raise NotImplementedError("RedisCacheBackend requires `poetry install --with redis`")
-
-    async def delete(self, key: str) -> None:
-        raise NotImplementedError("RedisCacheBackend requires `poetry install --with redis`")
-
-    async def exists(self, key: str) -> bool:
-        raise NotImplementedError("RedisCacheBackend requires `poetry install --with redis`")
+    get = stub_method(_STUB_MESSAGE)
+    set = stub_method(_STUB_MESSAGE)
+    delete = stub_method(_STUB_MESSAGE)
+    exists = stub_method(_STUB_MESSAGE)

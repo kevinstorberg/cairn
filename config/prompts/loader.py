@@ -1,6 +1,6 @@
-from pathlib import Path
+from lib.cairn.paths import get_module_dir
 
-_PROMPTS_DIR = Path(__file__).resolve().parent
+_PROMPTS_DIR = get_module_dir(__file__)
 
 
 def load_prompt(name: str) -> str:

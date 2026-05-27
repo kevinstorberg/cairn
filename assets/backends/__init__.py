@@ -1,18 +1,22 @@
-import os
-
 from assets.base import StorageBackend
+from config.loader import load_default_config
 
 
 def get_storage_backend() -> StorageBackend:
-    backend = os.environ.get("STORAGE_BACKEND", "local")
-    if backend == "local":
+    """Get storage backend instance based on configuration."""
+    config = load_default_config()
+    backend_name = config.storage.backend.lower()
+
+    if backend_name == "local":
         from assets.backends.local import LocalStorage
 
-        base_path = os.environ.get("STORAGE_LOCAL_PATH", "./storage")
-        return LocalStorage(base_path=base_path)
-    elif backend == "s3":
+        return LocalStorage(base_path=config.storage.local_path)
+    elif backend_name == "s3":
         from assets.backends.s3 import S3Storage
 
         return S3Storage()
-    else:
-        raise ValueError(f"Unknown storage backend: {backend!r}. Available: local, s3")
+
+    raise ValueError(
+        f"Unknown storage backend: {backend_name!r}. "
+        f"Valid options: local, s3"
+    )

@@ -16,6 +16,10 @@ cache:
   backend: memory
   default_ttl: 300
 
+storage:
+  backend: local
+  local_path: ./storage
+
 security:
   rate_limit_per_minute: 60
   cors_origins:

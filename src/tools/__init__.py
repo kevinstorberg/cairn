@@ -1,11 +1,11 @@
 import importlib
 import logging
 import pkgutil
-from pathlib import Path
 from typing import Any, Callable
 
 import nest_asyncio
 
+from lib.cairn.paths import get_module_dir
 from src.tools.context import ToolContext
 
 # Allow nested event loops for tools that need to run async code synchronously
@@ -34,7 +34,7 @@ def register_tool(name: str):
 
 def _auto_import_tools():
     """Auto-import all tool modules to trigger @register_tool decorators."""
-    tools_dir = Path(__file__).parent
+    tools_dir = get_module_dir(__file__)
 
     for _, module_name, _ in pkgutil.iter_modules([str(tools_dir)]):
         # Skip private/special modules
