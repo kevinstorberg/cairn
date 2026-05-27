@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -49,5 +50,12 @@ class Settings(BaseSettings):
         return url
 
 
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Get cached settings instance."""
     return Settings()
+
+
+def reset_settings():
+    """Clear settings cache for testing or environment changes."""
+    get_settings.cache_clear()

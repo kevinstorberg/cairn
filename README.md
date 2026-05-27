@@ -61,8 +61,36 @@ Runtime overrides                        (explicit params)
 ## Optional Dependencies
 
 ```bash
-poetry install --with aws       # boto3
-poetry install --with redis     # redis
-poetry install --with pinecone  # pinecone-client
-poetry install --with pgvector  # pgvector
+poetry install --with aws       # boto3 (S3 storage)
+poetry install --with redis     # redis (cache backend)
+poetry install --with pinecone  # pinecone-client (vector store)
+poetry install --with pgvector  # pgvector (PostgreSQL vector store)
 ```
+
+## Documentation
+
+Comprehensive guides for building applications with Cairn:
+
+- **[Testing Guide](docs/TESTING.md)** - Test patterns, fixtures, mocking, parallel execution
+- **[Tool Development](docs/TOOLS.md)** - Creating tools, registration, database access, best practices
+- **[Backend Switching](docs/BACKENDS.md)** - Memory/cache/storage backends, migration guides
+- **[Graph Development](docs/GRAPHS.md)** - Building LangGraph workflows, state management, node patterns
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Multi-environment setup, Docker, migrations, secrets management
+- **[Database Patterns](db/PATTERNS.md)** - Common pitfalls, SQLAlchemy patterns, PostgreSQL specifics
+
+## Key Features
+
+### Auto-Discovery Tools
+Create a tool in `src/tools/my_tool.py` and it's automatically registered - no manual imports needed.
+
+### Singleton Backends
+Memory, cache, and storage backends use singleton pattern - data persists across requests.
+
+### Config-Driven Graphs
+Define model, tools, and settings in YAML - swap configurations without code changes.
+
+### Test Infrastructure
+Comprehensive fixtures with FastAPI dependency overrides - tests run in parallel safely.
+
+### Multi-Environment Support
+`.env.{APP_ENV}` hierarchy with environment switching and settings caching.
