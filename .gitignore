@@ -20,9 +20,13 @@ storage/
 .coverage
 htmlcov/
 .ruff_cache/
+coverage.xml
 
 .idea/
 .vscode/
 *.swp
 *.swo
 .DS_Store
+
+# Claude Code
+.claude/
