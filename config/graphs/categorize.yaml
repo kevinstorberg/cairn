@@ -1,0 +1,12 @@
+llm:
+  provider: anthropic
+  model: claude-sonnet-4-6
+  max_tokens: 512
+
+tools:
+  - get_todo
+  - update_todo
+
+cache:
+  backend: redis
+  default_ttl: 86400  # 24 hours - categories are stable

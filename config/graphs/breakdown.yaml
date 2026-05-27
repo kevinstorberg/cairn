@@ -1,0 +1,16 @@
+llm:
+  provider: anthropic
+  model: claude-sonnet-4-6
+  max_tokens: 2048
+
+tools:
+  - get_todo
+  - create_subtask
+
+memory:
+  backend: faiss
+  embedding_model: all-MiniLM-L6-v2
+
+cache:
+  backend: memory
+  default_ttl: 600

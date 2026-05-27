@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from src.routers import health
 from src.routers.health import _VERSION
+from src.routers.todos import router as todos_router
 from src.websockets.router import router as ws_router
 
 
@@ -15,6 +16,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     application = FastAPI(title="Cairn", version=_VERSION, lifespan=lifespan)
     application.include_router(health.router, tags=["health"])
+    application.include_router(todos_router)
     application.include_router(ws_router)
     return application
 

@@ -38,6 +38,7 @@ langchain-community = "^0.3.0"
 langchain-huggingface = ">=0.1.0,<1.0.0"
 sentence-transformers = ">=3.0.0"
 faiss-cpu = "^1.8.0"
+nest-asyncio = "^1.6.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

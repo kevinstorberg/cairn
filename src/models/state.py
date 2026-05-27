@@ -1,9 +1,26 @@
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
-
-def add_messages_reducer(existing: list, new: list) -> list:
-    return existing + new
+from langgraph.graph import add_messages
 
 
 class BaseState(TypedDict):
-    messages: list
+    messages: Annotated[list, add_messages]
+
+
+class TodoBreakdownState(TypedDict):
+    """State for todo breakdown graph."""
+
+    messages: Annotated[list, add_messages]
+    todo_id: str
+    todo_title: str
+    todo_description: str
+    subtasks_created: list[dict]
+
+
+class TodoCategorizeState(TypedDict):
+    """State for todo categorization graph."""
+
+    messages: Annotated[list, add_messages]
+    todo_id: str
+    todo_text: str
+    category: str | None
