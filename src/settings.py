@@ -1,8 +1,9 @@
 import os
 from functools import lru_cache
 
-from lib.cairn.paths import get_repo_root
 from pydantic_settings import BaseSettings
+
+from lib.cairn.paths import get_repo_root
 
 _repo_root = get_repo_root(__file__)
 _env_default = _repo_root / ".env.default"

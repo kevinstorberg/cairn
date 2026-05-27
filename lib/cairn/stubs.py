@@ -3,6 +3,7 @@
 This module provides utilities for creating consistent stub methods across
 optional backend implementations.
 """
+
 from typing import Any, Callable
 
 
@@ -26,6 +27,7 @@ def stub_method(message: str) -> Callable[..., None]:
         >>> backend = PineconeBackend()
         >>> backend.store()  # Raises NotImplementedError with message
     """
+
     def _stub(*args: Any, **kwargs: Any) -> None:
         raise NotImplementedError(message)
 

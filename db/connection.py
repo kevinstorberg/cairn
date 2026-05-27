@@ -1,7 +1,8 @@
 from collections.abc import AsyncGenerator
 
-from lib.cairn.singleton import singleton
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+
+from lib.cairn.singleton import singleton
 
 
 @singleton

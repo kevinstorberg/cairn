@@ -12,7 +12,9 @@ To create your own tool:
 
 This example can be deleted once you understand the pattern.
 """
+
 from langchain_core.tools import tool
+
 from src.tools import register_tool
 from src.tools.context import ToolContext
 

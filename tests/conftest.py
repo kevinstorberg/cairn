@@ -10,11 +10,12 @@ Example usage in your tests:
         response = await client.get("/my-endpoint")
         assert response.status_code == 200
 """
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from db.connection import get_session
 from src.app import create_app
@@ -39,7 +40,7 @@ def test_engine():
     engine = create_async_engine(
         "postgresql+asyncpg://localhost:5432/cairn_test",
         echo=False,
-        poolclass=NullPool  # Critical: No pooling in tests
+        poolclass=NullPool,  # Critical: No pooling in tests
     )
     yield engine
     # Cleanup
@@ -98,10 +99,7 @@ async def client(app_with_test_db):
             response = await client.post("/users", json={"name": "Alice"})
             assert response.status_code == 201
     """
-    async with AsyncClient(
-        transport=ASGITransport(app=app_with_test_db),
-        base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app_with_test_db), base_url="http://test") as ac:
         yield ac
 
 

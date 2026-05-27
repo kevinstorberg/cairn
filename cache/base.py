@@ -24,6 +24,7 @@ Example in LangGraph node:
             return {"result": cached}
         return {}
 """
+
 from typing import Protocol, runtime_checkable
 
 

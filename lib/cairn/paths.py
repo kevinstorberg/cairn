@@ -3,6 +3,7 @@
 This module provides utilities for consistently resolving paths relative to
 module files, eliminating repeated Path(__file__).resolve().parent patterns.
 """
+
 from pathlib import Path
 
 

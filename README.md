@@ -24,8 +24,11 @@ poetry run uvicorn src.app:app --reload
 make test            # all tests
 make test-unit       # fast, no external deps
 make test-e2e        # full integration
+make test-cov        # tests with coverage report
 make lint            # ruff check
-make check           # lint + test
+make format          # ruff format (apply)
+make format-check    # ruff format (check only)
+make check           # lint + format-check + test
 ```
 
 ## Structure
@@ -79,6 +82,30 @@ poetry install --with redis     # redis (cache backend)
 poetry install --with pinecone  # pinecone-client (vector store)
 poetry install --with pgvector  # pgvector (PostgreSQL vector store)
 ```
+
+## CI/CD Pipeline
+
+GitHub Actions workflows run automatically on push and pull requests:
+
+- **Test Workflow** (`.github/workflows/test.yml`) - Linting, formatting, tests with coverage
+- **Pre-commit Workflow** (`.github/workflows/pre-commit.yml`) - Enforces code quality hooks
+
+### Pre-commit Hooks (Optional Local Setup)
+
+Install pre-commit hooks to run checks before each commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Hooks run automatically on `git commit`. To run manually:
+
+```bash
+pre-commit run --all-files
+```
+
+**Note:** Pre-commit checks are enforced in CI/CD even if you don't install them locally.
 
 ## Documentation
 

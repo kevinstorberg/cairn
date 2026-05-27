@@ -25,6 +25,7 @@ def register_tool(name: str):
     Returns:
         Decorator that registers the factory function
     """
+
     def decorator(fn: Callable[[ToolContext], Any]):
         TOOL_FACTORY[name] = fn
         return fn
@@ -38,10 +39,10 @@ def _auto_import_tools():
 
     for _, module_name, _ in pkgutil.iter_modules([str(tools_dir)]):
         # Skip private/special modules
-        if module_name.startswith('_') or module_name == 'context':
+        if module_name.startswith("_") or module_name == "context":
             continue
         try:
-            importlib.import_module(f'src.tools.{module_name}')
+            importlib.import_module(f"src.tools.{module_name}")
             logger.debug(f"Auto-imported tool module: {module_name}")
         except ImportError as e:
             logger.warning(f"Failed to import tool module {module_name}: {e}")

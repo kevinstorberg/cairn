@@ -3,10 +3,11 @@
 This module provides a decorator for implementing the singleton pattern consistently
 across all backend factories and service instances.
 """
-import functools
-from typing import Any, Callable, TypeVar
 
-T = TypeVar('T')
+import functools
+from typing import Callable, TypeVar
+
+T = TypeVar("T")
 
 
 def singleton(func: Callable[[], T]) -> Callable[[], T]:

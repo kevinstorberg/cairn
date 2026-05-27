@@ -13,9 +13,7 @@ class ConnectionManager:
 
     def disconnect(self, websocket: WebSocket, room: str) -> None:
         if room in self.active_connections:
-            self.active_connections[room] = [
-                ws for ws in self.active_connections[room] if ws != websocket
-            ]
+            self.active_connections[room] = [ws for ws in self.active_connections[room] if ws != websocket]
             if not self.active_connections[room]:
                 del self.active_connections[room]
 

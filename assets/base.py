@@ -17,6 +17,7 @@ Example usage:
     exists = await storage.exists("user-123/avatar.jpg")
     data = await storage.download("user-123/avatar.jpg")
 """
+
 from typing import Protocol, runtime_checkable
 
 

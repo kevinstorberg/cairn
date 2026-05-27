@@ -16,18 +16,18 @@ def get_backend() -> MemoryBackend:
 
     if backend_name == "faiss":
         from memory.backends.faiss import FAISSBackend
+
         return FAISSBackend()
     elif backend_name == "pgvector":
         from memory.backends.pgvector import PGVectorBackend
+
         return PGVectorBackend()
     elif backend_name == "pinecone":
         from memory.backends.pinecone import PineconeBackend
+
         return PineconeBackend()
     else:
-        raise ValueError(
-            f"Unknown memory backend: {backend_name}. "
-            f"Valid options: faiss, pgvector, pinecone"
-        )
+        raise ValueError(f"Unknown memory backend: {backend_name}. " f"Valid options: faiss, pgvector, pinecone")
 
 
 # Expose reset for testing

@@ -13,6 +13,7 @@ Example usage:
     async def list_users():
         return {"users": []}
 """
+
 from fastapi import APIRouter
 
 

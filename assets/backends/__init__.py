@@ -12,6 +12,7 @@ Example usage:
     storage = get_storage_backend()
     await storage.upload("files/document.pdf", pdf_bytes, "application/pdf")
 """
+
 from assets.base import StorageBackend
 from config.loader import load_default_config
 
@@ -30,7 +31,4 @@ def get_storage_backend() -> StorageBackend:
 
         return S3Storage()
 
-    raise ValueError(
-        f"Unknown storage backend: {backend_name!r}. "
-        f"Valid options: local, s3"
-    )
+    raise ValueError(f"Unknown storage backend: {backend_name!r}. " f"Valid options: local, s3")
