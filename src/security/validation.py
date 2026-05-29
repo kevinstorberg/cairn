@@ -14,7 +14,9 @@ def validate_name(name: str) -> str:
     if len(name) > MAX_NAME_LENGTH:
         raise ValueError(f"Name too long (max {MAX_NAME_LENGTH} characters)")
     if not _NAME_RE.match(name):
-        raise ValueError("Name must start with a lowercase letter and contain only lowercase letters, digits, and underscores")
+        raise ValueError(
+            "Name must start with a lowercase letter and contain only lowercase letters, digits, and underscores"
+        )
     return name
 
 

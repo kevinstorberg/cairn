@@ -23,6 +23,11 @@ class CacheConfig(BaseModel):
     default_ttl: int = 300
 
 
+class StorageConfig(BaseModel):
+    backend: str = "local"
+    local_path: str = "./storage"
+
+
 class SecurityConfig(BaseModel):
     rate_limit_per_minute: int = 60
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
@@ -33,6 +38,7 @@ class DefaultConfig(BaseModel):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
+    storage: StorageConfig = Field(default_factory=StorageConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 

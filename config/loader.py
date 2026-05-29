@@ -1,11 +1,11 @@
 from functools import lru_cache
-from pathlib import Path
 
 import yaml
 
 from config.models import DefaultConfig, GraphConfig
+from lib.cairn.paths import get_module_dir
 
-_CONFIG_DIR = Path(__file__).resolve().parent
+_CONFIG_DIR = get_module_dir(__file__)
 
 
 def _deep_merge(base: dict, override: dict) -> None:

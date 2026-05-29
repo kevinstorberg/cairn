@@ -92,10 +92,7 @@ class TestE2EFullWorkflow:
             assert response["content"] == "item_created"
 
     def test_evals_framework(self):
-        criteria = build_criteria(
-            prompt="Is the response accurate?",
-            rule="Must cite sources"
-        )
+        criteria = build_criteria(prompt="Is the response accurate?", rule="Must cite sources")
         assert "accurate" in criteria
         assert "sources" in criteria
 

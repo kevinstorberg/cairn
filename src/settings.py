@@ -1,9 +1,11 @@
 import os
-from pathlib import Path
+from functools import lru_cache
 
 from pydantic_settings import BaseSettings
 
-_repo_root = Path(__file__).resolve().parent.parent
+from lib.cairn.paths import get_repo_root
+
+_repo_root = get_repo_root(__file__)
 _env_default = _repo_root / ".env.default"
 _env_file = _repo_root / f".env.{os.environ.get('APP_ENV', 'development')}"
 
@@ -49,5 +51,12 @@ class Settings(BaseSettings):
         return url
 
 
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Get cached settings instance."""
     return Settings()
+
+
+def reset_settings():
+    """Clear settings cache for testing or environment changes."""
+    get_settings.cache_clear()

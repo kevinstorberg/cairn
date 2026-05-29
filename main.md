@@ -1,6 +1,6 @@
 # Review Context Service
 
-## Story 
+## Story
 
 
 ## In Scope
