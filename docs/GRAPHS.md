@@ -32,16 +32,16 @@ tools:
 
 # 2. src/graphs/my_graph.py
 from langgraph.graph import StateGraph, END
-from src.graphs.base import BaseGraphState
+from src.models.state import BaseState
 from config.loader import load_graph_config
 
-class MyGraphState(BaseGraphState):
+class MyGraphState(BaseState):
     result: str = ""
 
 def build_my_graph():
     config = load_graph_config("my_graph")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
 
     def process(state: MyGraphState):
         response = llm.invoke(state["messages"])
@@ -114,7 +114,7 @@ from config.loader import load_graph_config
 config = load_graph_config("my_graph")
 
 # Access fields
-model_name = config.model  # "claude-3-5-sonnet-20241022"
+model_name = config.llm.model  # "claude-3-5-sonnet-20241022"
 tools_list = config.tools  # ["get_user", "create_todo", ...]
 timeout = config.settings.get("timeout", 60)  # 120
 
@@ -157,17 +157,17 @@ Graph-specific configs override these defaults.
 
 ### State Definition
 
-**Pattern**: Extend `BaseGraphState` for type safety
+**Pattern**: Extend `BaseState` for type safety
 
 ```python
 from typing import Annotated
 from langgraph.graph import add_messages
-from src.graphs.base import BaseGraphState
+from src.models.state import BaseState
 
-class MyGraphState(BaseGraphState):
+class MyGraphState(BaseState):
     """State for my_graph."""
 
-    # Messages (inherited from BaseGraphState)
+    # Messages (inherited from BaseState)
     # messages: Annotated[list[BaseMessage], add_messages]
 
     # Custom fields
@@ -177,7 +177,7 @@ class MyGraphState(BaseGraphState):
     metadata: dict = {}
 ```
 
-**Why extend BaseGraphState?**
+**Why extend BaseState?**
 - Inherits `messages` field with proper reducer
 - Type hints for IDE autocomplete
 - Consistent structure across graphs
@@ -199,7 +199,7 @@ def build_my_graph():
     tools = load_tools(config.tools, context)
 
     # 3. Build LLM
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
 
     # 4. Define nodes
     def process_node(state: MyGraphState):
@@ -222,7 +222,7 @@ def build_my_graph():
 def build_complex_graph():
     config = load_graph_config("complex_graph")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
 
     # Node 1: Validate input
     def validate(state: ComplexState):
@@ -315,7 +315,7 @@ def merge_dicts(current: dict, update: dict) -> dict:
     """Merge two dicts, preferring update values."""
     return {**current, **update}
 
-class MyGraphState(BaseGraphState):
+class MyGraphState(BaseState):
     # List: append
     results: Annotated[list[dict], add] = []
 
@@ -336,7 +336,7 @@ class MyGraphState(BaseGraphState):
 
 ```python
 def llm_node(state: MyGraphState):
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
     response = llm.invoke(state["messages"])
     return {"messages": [response]}
 ```
@@ -347,7 +347,7 @@ def llm_node(state: MyGraphState):
 
 ```python
 def agent_node(state: MyGraphState):
-    llm = build_llm(config.model, tools)  # Tools bound to LLM
+    llm = build_llm(config.llm.model, tools)  # Tools bound to LLM
     response = llm.invoke(state["messages"])
 
     # If LLM called tools, response includes tool_calls
@@ -361,22 +361,17 @@ def agent_node(state: MyGraphState):
 
 ### Database Node
 
-**Pattern**: Async DB operations with event loop
+**Pattern**: Async node with database access (preferred with LangGraph >=0.2.60)
 
 ```python
-import asyncio
 from db.connection import get_session_factory
 
-def db_node(state: MyGraphState):
-    async def _query():
-        factory = get_session_factory()
-        async with factory() as session:
-            result = await session.execute(select(User).where(User.id == state["user_id"]))
-            user = result.scalar_one_or_none()
-            return {"user": user.to_dict() if user else None}
-
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(_query())
+async def db_node(state: MyGraphState):
+    factory = get_session_factory()
+    async with factory() as session:
+        result = await session.execute(select(User).where(User.id == state["user_id"]))
+        user = result.scalar_one_or_none()
+        return {"user": user.to_dict() if user else None}
 ```
 
 ### Cache Node
@@ -384,29 +379,20 @@ def db_node(state: MyGraphState):
 **Pattern**: Check cache before expensive operation
 
 ```python
-import asyncio
 from cache.backends import get_cache_backend
 
-def cached_node(state: MyGraphState):
-    async def _cached():
-        cache = get_cache_backend()
-        cache_key = f"result:{state['query']}"
+async def cached_node(state: MyGraphState):
+    cache = get_cache_backend()
+    cache_key = f"result:{state['query']}"
 
-        # Check cache
-        cached = await cache.get(cache_key)
-        if cached:
-            return {"result": cached, "from_cache": True}
+    cached = await cache.get(cache_key)
+    if cached:
+        return {"result": cached, "from_cache": True}
 
-        # Compute result
-        result = expensive_operation(state["query"])
+    result = expensive_operation(state["query"])
+    await cache.set(cache_key, result, ttl=3600)
 
-        # Cache it
-        await cache.set(cache_key, result, ttl=3600)
-
-        return {"result": result, "from_cache": False}
-
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(_cached())
+    return {"result": result, "from_cache": False}
 ```
 
 ### Error Handling Node
@@ -446,7 +432,7 @@ def build_my_graph():
     tools = load_tools(config.tools, context)
 
     # Bind to LLM
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
 
     # Now LLM can call tools
     ...
@@ -468,7 +454,7 @@ def build_conditional_graph():
         else:
             tools = load_tools(["create_todo"], context)
 
-        llm = build_llm(config.model, tools)
+        llm = build_llm(config.llm.model, tools)
         response = llm.invoke(state["messages"])
         return {"messages": [response]}
 
@@ -481,7 +467,7 @@ def build_conditional_graph():
 
 ```python
 def process_tools(state: MyGraphState):
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
     response = llm.invoke(state["messages"])
 
     tool_results = []
@@ -598,7 +584,7 @@ async def test_graph_with_db(test_session, clean_db):
 ### ✅ Do
 
 - **Use config-driven architecture**: Keep model/tool configs in YAML
-- **Extend BaseGraphState**: Inherit messages field with reducer
+- **Extend BaseState**: Inherit messages field with reducer
 - **Type your state**: Use TypedDict or dataclass for IDE support
 - **Make nodes pure**: Given same state, return same output
 - **Handle errors in nodes**: Return error state instead of raising
@@ -611,8 +597,7 @@ async def test_graph_with_db(test_session, clean_db):
 
 - **Don't mutate state**: Return new dict, don't modify state parameter
 - **Don't use global state**: Pass everything through state
-- **Don't make nodes async**: LangGraph nodes are synchronous functions
-- **Don't call database directly in nodes**: Use event loop pattern
+- **Don't block in async nodes**: Use `asyncio.to_thread()` for CPU-heavy sync work
 - **Don't hardcode model names**: Use config files
 - **Don't forget message reducers**: Use `add_messages` for message field
 - **Don't skip error handling**: Always return error state on failure
@@ -641,14 +626,14 @@ def unclear_node(s):  # No types
 
 ```python
 # Good
-class ClearState(BaseGraphState):
+class ClearState(BaseState):
     """State for my_graph."""
     user_id: str = ""
     query: str = ""
     results: list[dict] = []
 
 # Bad
-class UnclearState(BaseGraphState):
+class UnclearState(BaseState):
     uid: str = ""  # Unclear abbreviation
     q: str = ""  # Too short
     data: Any = None  # Too vague
@@ -688,7 +673,7 @@ from langgraph.graph import StateGraph
 def build_streaming_graph():
     config = load_graph_config("streaming")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
-    llm = build_llm(config.model, tools)
+    llm = build_llm(config.llm.model, tools)
 
     async def stream_node(state: StreamingState):
         messages = state["messages"]
@@ -785,26 +770,19 @@ def good_node(state):
 
 ---
 
-### "Async node not supported"
+### "Async in nodes"
 
-**Problem**: Tried to make node async.
+**Note**: LangGraph >=0.2.60 supports async nodes natively. Use `async def` directly:
 
-**Solution**: Use event loop pattern:
 ```python
-# Wrong
+# Preferred: async nodes work directly
 async def async_node(state):
     result = await async_operation()
     return {"result": result}
-
-# Correct
-def sync_node(state):
-    async def _async():
-        result = await async_operation()
-        return {"result": result}
-
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(_async())
 ```
+
+If you must call async code from a **sync tool** (LangChain tools are sync by default),
+`nest_asyncio` is already applied in `src/tools/__init__.py` to enable nested event loops.
 
 ---
 
@@ -815,14 +793,14 @@ def sync_node(state):
 **Solution**: Use proper annotation:
 ```python
 # Wrong
-class BadState(BaseGraphState):
+class BadState(BaseState):
     messages: list[BaseMessage] = []
 
 # Correct
 from typing import Annotated
 from langgraph.graph import add_messages
 
-class GoodState(BaseGraphState):
+class GoodState(BaseState):
     messages: Annotated[list[BaseMessage], add_messages]
 ```
 

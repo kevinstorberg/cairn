@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from cache.backends.memory import InMemoryCacheBackend
 from cache.service import CacheService
-from memory.backends.faiss import FAISSBackend
+from memory.backends.in_memory import InMemoryVectorBackend
 from src.app import create_app
 from src.evals.judge import build_criteria, extract_steps
 from src.evals.results import EvalResult
@@ -46,7 +46,8 @@ class TestE2EFullWorkflow:
         graph = build_graph_from_config("default")
         result = graph.invoke({"messages": ["hello"]})
         assert "messages" in result
-        assert result["messages"] == ["hello"]
+        assert len(result["messages"]) == 1
+        assert result["messages"][0].content == "hello"
 
     def test_tool_registry_flow(self):
         factory_key = "_e2e_test_tool"
@@ -65,7 +66,7 @@ class TestE2EFullWorkflow:
 
     @pytest.mark.asyncio
     async def test_memory_store_and_search(self):
-        backend = FAISSBackend()
+        backend = InMemoryVectorBackend()
         embedding = [0.1] * 384
         await backend.store("item-1", "Test item content", {"type": "item"}, embedding)
         results = await backend.search(embedding, limit=1)

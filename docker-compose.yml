@@ -6,6 +6,9 @@ services:
     env_file:
       - .env.default
       - .env.development
+    environment:
+      # Override DB host for container-to-container networking
+      DATABASE_URL_DEVELOPMENT: postgresql+asyncpg://cairn:cairn@db:5432/cairn_dev
     depends_on:
       db:
         condition: service_healthy

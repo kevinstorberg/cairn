@@ -126,17 +126,17 @@ def create_premium_tool(context: ToolContext):
 
 ## Tool Context
 
-`ToolContext` provides access to configuration, settings, and state.
+`ToolContext` provides metadata about the graph invoking the tool.
 
 ### Available Fields
 
 ```python
-@dataclass
-class ToolContext:
-    config: DefaultConfig          # Loaded from YAML
-    settings: Settings | None      # Pydantic settings
-    user_id: str | None           # Current user (if applicable)
-    metadata: dict[str, Any]      # Additional context
+class ToolContext(BaseModel):
+    graph_name: str = ""                              # Name of the invoking graph
+    tools: list[str] = Field(default_factory=list)    # Tool names loaded for this graph
+    enabled_sources: list[str] = Field(default_factory=list)  # Data sources enabled
+    source_limits: dict[str, int] = Field(default_factory=dict)  # Per-source limits
+    scope: dict | None = None                         # Optional scope/permissions
 ```
 
 ### Usage Example
@@ -147,19 +147,18 @@ from src.tools.context import ToolContext
 
 @register_tool("smart_search")
 def create_search_tool(context: ToolContext):
-    """Create search tool with config-based settings."""
+    """Create search tool using context metadata."""
 
-    # Access configuration
-    max_results = context.config.tools_config.get("max_results", 10)
+    # Access graph name for logging/metrics
+    graph = context.graph_name
 
-    # Access settings
-    api_key = context.settings.ANTHROPIC_API_KEY if context.settings else None
+    # Check enabled sources
+    sources = context.enabled_sources
 
     @tool
     def smart_search(query: str) -> list[dict]:
         """Search with smart ranking."""
-        # Use config values
-        return search_with_limit(query, limit=max_results)
+        return search_sources(query, sources=sources)
 
     return smart_search
 ```
@@ -170,18 +169,16 @@ def create_search_tool(context: ToolContext):
 from config.loader import load_graph_config
 from src.tools.context import ToolContext
 
-# Load graph-specific config
+# Create from graph config (typical usage)
 config = load_graph_config("my_graph")
-
-# Create context
 context = ToolContext.from_graph_config(config)
 
-# Or with additional metadata
+# Or create directly with explicit values
 context = ToolContext(
-    config=config,
-    settings=get_settings(),
-    user_id="user123",
-    metadata={"session_id": "abc"}
+    graph_name="my_graph",
+    tools=["search", "retrieve"],
+    enabled_sources=["documents", "web"],
+    source_limits={"documents": 5},
 )
 ```
 

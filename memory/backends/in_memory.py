@@ -1,19 +1,27 @@
+"""In-memory vector similarity backend.
+
+Provides a simple numpy-based vector store suitable for development and testing.
+For production-scale vector search, switch to pgvector or Pinecone backends,
+or use faiss-cpu directly (available as a project dependency).
+"""
+
 import numpy as np
 
 from memory.base import MemoryBackend
 
 
-class FAISSBackend(MemoryBackend):
+class InMemoryVectorBackend(MemoryBackend):
     def __init__(self, dimension: int = 384):
         self._dimension = dimension
         self._entries: dict[str, dict] = {}
-        self._vectors: list[np.ndarray] = []
-        self._ids: list[str] = []
+        self._vectors: dict[str, np.ndarray] = {}
 
     async def store(self, id: str, text: str, metadata: dict, embedding: list[float]) -> None:
+        vec = np.array(embedding, dtype=np.float32)
+        if vec.shape != (self._dimension,):
+            raise ValueError(f"Embedding dimension mismatch: expected {self._dimension}, got {vec.shape[0]}")
         self._entries[id] = {"id": id, "text": text, "metadata": metadata}
-        self._vectors.append(np.array(embedding, dtype=np.float32))
-        self._ids.append(id)
+        self._vectors[id] = vec
 
     async def search(self, query_embedding: list[float], limit: int = 10, filters: dict | None = None) -> list[dict]:
         if not self._vectors:
@@ -21,10 +29,11 @@ class FAISSBackend(MemoryBackend):
 
         query = np.array(query_embedding, dtype=np.float32)
         scores = []
-        for i, vec in enumerate(self._vectors):
-            id_ = self._ids[i]
-            if id_ not in self._entries:
-                continue
+        for id_, vec in self._vectors.items():
+            entry = self._entries[id_]
+            if filters:
+                if not all(entry["metadata"].get(k) == v for k, v in filters.items()):
+                    continue
             score = float(np.dot(query, vec) / (np.linalg.norm(query) * np.linalg.norm(vec) + 1e-10))
             scores.append((score, id_))
 
@@ -37,3 +46,4 @@ class FAISSBackend(MemoryBackend):
 
     async def delete(self, id: str) -> None:
         self._entries.pop(id, None)
+        self._vectors.pop(id, None)

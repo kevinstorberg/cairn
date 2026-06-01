@@ -13,7 +13,7 @@ class DatabaseConfig(BaseModel):
 
 
 class MemoryConfig(BaseModel):
-    backend: str = "faiss"
+    backend: str = "in_memory"
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dimension: int = 384
 
@@ -29,7 +29,6 @@ class StorageConfig(BaseModel):
 
 
 class SecurityConfig(BaseModel):
-    rate_limit_per_minute: int = 60
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
 
 

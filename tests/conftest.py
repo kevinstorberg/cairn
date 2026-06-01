@@ -38,7 +38,7 @@ def test_engine():
     Uses NullPool to avoid connection sharing issues in tests.
     """
     engine = create_async_engine(
-        "postgresql+asyncpg://localhost:5432/cairn_test",
+        "postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test",
         echo=False,
         poolclass=NullPool,  # Critical: No pooling in tests
     )
@@ -108,8 +108,7 @@ async def clean_db(test_session):
     """Clean database before and after each test.
 
     Template fixture: Use this to ensure database isolation between tests.
-    Truncates tables before and after each test. Update the TRUNCATE statement
-    with your own table names as you add them.
+    Automatically truncates all tables registered in Base.metadata.
 
     Example:
         async def test_user_creation(test_session, clean_db):
@@ -120,12 +119,18 @@ async def clean_db(test_session):
     """
     from sqlalchemy import text
 
-    # Cleanup before test
-    await test_session.execute(text("TRUNCATE TABLE todos CASCADE"))
-    await test_session.commit()
+    from db.base import Base
+
+    table_names = [t.name for t in reversed(Base.metadata.sorted_tables)]
+
+    if table_names:
+        truncate_sql = f"TRUNCATE TABLE {', '.join(table_names)} CASCADE"
+        await test_session.execute(text(truncate_sql))
+        await test_session.commit()
 
     yield
 
-    # Cleanup after test
-    await test_session.execute(text("TRUNCATE TABLE todos CASCADE"))
-    await test_session.commit()
+    if table_names:
+        truncate_sql = f"TRUNCATE TABLE {', '.join(table_names)} CASCADE"
+        await test_session.execute(text(truncate_sql))
+        await test_session.commit()

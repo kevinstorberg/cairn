@@ -1,6 +1,19 @@
 # Backend Switching Guide
 
-Cairn supports multiple backends for memory, cache, and storage. Switch between them using environment variables—no code changes required.
+Cairn supports multiple backends for memory, cache, and storage. Switch between them
+by changing `config/default.yaml`—no code changes required.
+
+```yaml
+# config/default.yaml
+memory:
+  backend: in_memory  # Options: in_memory, pgvector, pinecone
+
+cache:
+  backend: memory     # Options: memory, redis
+
+storage:
+  backend: local      # Options: local, s3
+```
 
 ## Table of Contents
 
@@ -16,15 +29,14 @@ Cairn supports multiple backends for memory, cache, and storage. Switch between 
 
 Memory backends store vector embeddings for semantic search.
 
-### FAISS (Default - Local)
+### In-Memory (Default - Local)
 
 **Use when**: Development, single-server deployments, prototyping
 
-**Setup**:
-```bash
-# .env.development
-MEMORY_BACKEND=faiss
-MEMORY_STORE_PATH=./memory_store
+**Setup** (`config/default.yaml`):
+```yaml
+memory:
+  backend: in_memory
 ```
 
 **Pros**:
@@ -36,13 +48,13 @@ MEMORY_STORE_PATH=./memory_store
 **Cons**:
 - In-memory only (lost on restart)
 - Single-server only
-- No persistence to disk by default
+- No persistence to disk
 
 **Code example**:
 ```python
 from memory.backends import get_backend
 
-backend = get_backend()  # Returns FAISSBackend
+backend = get_backend()  # Returns InMemoryVectorBackend
 await backend.store("id1", "text", {"key": "value"}, embedding)
 results = await backend.search(query_embedding, limit=5)
 ```
@@ -53,14 +65,15 @@ results = await backend.search(query_embedding, limit=5)
 
 **Use when**: Production, need persistence, already using PostgreSQL
 
-**Setup**:
-```bash
-# Install pgvector extension in PostgreSQL
-CREATE EXTENSION vector;
+**Setup** (`config/default.yaml`):
+```yaml
+memory:
+  backend: pgvector
+```
 
-# .env.production
-MEMORY_BACKEND=pgvector
-DATABASE_URL_PRODUCTION=postgresql+asyncpg://user:pass@host:5432/db
+Also ensure the pgvector extension exists in your PostgreSQL:
+```sql
+CREATE EXTENSION vector;
 ```
 
 **Install dependency**:
@@ -75,24 +88,18 @@ poetry install --with pgvector
 - No additional infrastructure
 
 **Cons**:
-- Slower than FAISS for large datasets
+- Slower than in-memory for large datasets
 - Requires PostgreSQL 11+
 - Needs pgvector extension
 
-**Migration from FAISS**:
+**Migration from in-memory**:
 ```python
-# 1. Export from FAISS
-faiss_backend = get_backend()  # MEMORY_BACKEND=faiss
-all_vectors = []  # Manually export vectors
+# 1. Export from in-memory backend
+old_backend = get_backend()  # backend: in_memory
+# Manually export vectors before switching
 
-# 2. Switch to pgvector
-os.environ["MEMORY_BACKEND"] = "pgvector"
-reset_backend()
-
-# 3. Import to pgvector
-pgvector_backend = get_backend()
-for vector_data in all_vectors:
-    await pgvector_backend.store(...)
+# 2. Update config/default.yaml to backend: pgvector
+# 3. Restart app — get_backend() now returns PGVectorBackend
 ```
 
 ---
@@ -101,10 +108,14 @@ for vector_data in all_vectors:
 
 **Use when**: Large scale, multi-region, managed service
 
-**Setup**:
+**Setup** (`config/default.yaml`):
+```yaml
+memory:
+  backend: pinecone
+```
+
+Also set Pinecone credentials in your environment:
 ```bash
-# .env.production
-MEMORY_BACKEND=pinecone
 PINECONE_API_KEY=your-api-key
 PINECONE_ENVIRONMENT=us-east-1-aws
 PINECONE_INDEX_NAME=cairn-vectors
@@ -136,10 +147,10 @@ Cache backends store temporary key-value data for performance.
 
 **Use when**: Development, testing, single-server
 
-**Setup**:
-```bash
-# .env.development
-CACHE_BACKEND=memory
+**Setup** (`config/default.yaml`):
+```yaml
+cache:
+  backend: memory
 ```
 
 **Pros**:
@@ -168,13 +179,18 @@ await cache.delete("key")
 
 **Use when**: Production, multiple servers, need persistence
 
-**Setup**:
+**Setup** (`config/default.yaml`):
+```yaml
+cache:
+  backend: redis
+```
+
+Also set Redis URL in your environment:
 ```bash
 # Start Redis
 docker run -d -p 6379:6379 redis:7-alpine
 
-# .env.production
-CACHE_BACKEND=redis
+# .env
 REDIS_URL=redis://localhost:6379/0
 ```
 
@@ -195,11 +211,11 @@ poetry install --with redis
 - Operational complexity
 
 **Migration from Memory**:
-```bash
-# Just change environment variable - no data migration needed
+```yaml
+# Just change config/default.yaml - no data migration needed
 # Cache is ephemeral by nature
-CACHE_BACKEND=redis
-REDIS_URL=redis://your-redis-server:6379/0
+cache:
+  backend: redis
 ```
 
 ---
@@ -212,11 +228,11 @@ Storage backends handle file uploads (attachments, images, etc.).
 
 **Use when**: Development, single-server, small files
 
-**Setup**:
-```bash
-# .env.development
-STORAGE_BACKEND=local
-STORAGE_PATH=./storage
+**Setup** (`config/default.yaml`):
+```yaml
+storage:
+  backend: local
+  local_path: ./storage
 ```
 
 **Pros**:
@@ -246,10 +262,14 @@ await storage.delete("todos/123/file.pdf")
 
 **Use when**: Production, multiple servers, need durability
 
-**Setup**:
+**Setup** (`config/default.yaml`):
+```yaml
+storage:
+  backend: s3
+```
+
+Also set AWS credentials in your environment:
 ```bash
-# .env.production
-STORAGE_BACKEND=s3
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
@@ -276,16 +296,12 @@ poetry install --with aws
 ```python
 import asyncio
 from pathlib import Path
-from assets.backends import get_storage_backend
+from assets.backends.s3 import S3Storage
 
 async def migrate_to_s3():
     local_path = Path("./storage")
+    s3_storage = S3Storage()
 
-    # Switch to S3
-    os.environ["STORAGE_BACKEND"] = "s3"
-    s3_storage = get_storage_backend()
-
-    # Upload all local files
     for file_path in local_path.rglob("*"):
         if file_path.is_file():
             relative_key = str(file_path.relative_to(local_path))
@@ -294,6 +310,7 @@ async def migrate_to_s3():
             print(f"Migrated: {relative_key}")
 
 asyncio.run(migrate_to_s3())
+# Then update config/default.yaml: storage.backend: s3
 ```
 
 ---
@@ -302,8 +319,8 @@ asyncio.run(migrate_to_s3())
 
 ### Memory Backends
 
-| Feature | FAISS | PGVector | Pinecone |
-|---------|-------|----------|----------|
+| Feature | In-Memory | PGVector | Pinecone |
+|---------|-----------|----------|----------|
 | **Setup** | Easy | Medium | Easy |
 | **Cost** | Free | Free | $$ |
 | **Persistence** | No | Yes | Yes |
@@ -341,74 +358,89 @@ asyncio.run(migrate_to_s3())
 
 #### Memory
 - [ ] Choose backend: PGVector (if using PostgreSQL) or Pinecone (if scaling)
-- [ ] Export existing FAISS vectors (if any)
-- [ ] Set environment variables
+- [ ] Export existing in-memory vectors (if any)
+- [ ] Update `config/default.yaml`: `memory.backend: pgvector` or `pinecone`
+- [ ] Set credentials in environment (Pinecone API key, or ensure pgvector extension)
 - [ ] Install dependencies (`--with pgvector` or `--with pinecone`)
 - [ ] Import vectors to new backend
 - [ ] Test semantic search
 
 #### Cache
 - [ ] Set up Redis server
-- [ ] Set `CACHE_BACKEND=redis`
-- [ ] Set `REDIS_URL`
+- [ ] Update `config/default.yaml`: `cache.backend: redis`
+- [ ] Set `REDIS_URL` in environment
 - [ ] Install dependency (`--with redis`)
 - [ ] No data migration needed (cache is ephemeral)
 - [ ] Test cache operations
 
 #### Storage
 - [ ] Create S3 bucket
-- [ ] Set up IAM credentials
-- [ ] Set environment variables
+- [ ] Set up IAM credentials in environment
+- [ ] Update `config/default.yaml`: `storage.backend: s3`
 - [ ] Install dependency (`--with aws`)
 - [ ] Run migration script to copy files
-- [ ] Update application to use S3
 - [ ] Test file upload/download
 
-### Environment Variable Reference
+### Configuration Reference
 
+**Development** (`config/default.yaml`):
+```yaml
+memory:
+  backend: in_memory
+cache:
+  backend: memory
+storage:
+  backend: local
+  local_path: ./storage
+```
+
+**Production** (`config/default.yaml` or environment-specific override):
+```yaml
+memory:
+  backend: pgvector    # or pinecone
+cache:
+  backend: redis
+storage:
+  backend: s3
+```
+
+**Secrets** (`.env.production` — not committed):
 ```bash
-# Development (.env.development)
-MEMORY_BACKEND=faiss
-MEMORY_STORE_PATH=./memory_store
-CACHE_BACKEND=memory
-STORAGE_BACKEND=local
-STORAGE_PATH=./storage
-
-# Production (.env.production)
-MEMORY_BACKEND=pgvector  # or pinecone
 DATABASE_URL_PRODUCTION=postgresql+asyncpg://...
-CACHE_BACKEND=redis
 REDIS_URL=redis://your-redis:6379/0
-STORAGE_BACKEND=s3
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 S3_BUCKET=your-bucket
+PINECONE_API_KEY=...          # if using Pinecone
+PINECONE_ENVIRONMENT=...      # if using Pinecone
 ```
 
 ---
 
 ## Testing with Different Backends
 
-### Test with Memory Cache (Fast)
+Backend selection is driven by `config/default.yaml`. To test with different backends,
+temporarily change the YAML config or use environment-specific config overrides:
+
+### Test with defaults (in-memory + memory cache + local storage)
 ```bash
-CACHE_BACKEND=memory poetry run pytest
+poetry run pytest
 ```
 
 ### Test with Redis (Integration)
 ```bash
 docker run -d -p 6379:6379 redis:7-alpine
-CACHE_BACKEND=redis poetry run pytest
+# Update config/default.yaml: cache.backend: redis
+# Ensure REDIS_URL is set in .env.test
+poetry run pytest
 ```
 
-### Test with FAISS (Default)
+### Test with PGVector (Integration)
 ```bash
-MEMORY_BACKEND=faiss poetry run pytest
-```
-
-### Test with Local Storage (Fast)
-```bash
-STORAGE_BACKEND=local poetry run pytest
+# Ensure pgvector extension is installed in test database
+# Update config/default.yaml: memory.backend: pgvector
+poetry run pytest
 ```
 
 ---
@@ -417,22 +449,24 @@ STORAGE_BACKEND=local poetry run pytest
 
 ### "Unknown backend" error
 
-**Problem**: Backend name misspelled or not installed.
+**Problem**: Backend name misspelled in `config/default.yaml` or dependency not installed.
 
 **Solution**:
 ```bash
-# Check spelling
-echo $MEMORY_BACKEND  # Should be: faiss, pgvector, or pinecone
+# Check config/default.yaml for valid values:
+#   memory.backend: in_memory, pgvector, or pinecone
+#   cache.backend: memory or redis
+#   storage.backend: local or s3
 
-# Install dependencies
+# Install dependencies for non-default backends
 poetry install --with pgvector  # or --with pinecone, --with redis, --with aws
 ```
 
 ### Memory backend not persisting data
 
-**Problem**: Using FAISS (in-memory) or not using singleton.
+**Problem**: Using in-memory backend (data lost on restart).
 
-**Solution**: Switch to PGVector or Pinecone for persistence. FAISS is ephemeral by design.
+**Solution**: Switch to PGVector or Pinecone for persistence by updating `config/default.yaml`. The in-memory backend is ephemeral by design.
 
 ### Redis connection errors
 
@@ -472,7 +506,6 @@ REDIS_URL=redis://host:port/db  # Correct format
 
 ## Further Reading
 
-- [FAISS Documentation](https://github.com/facebookresearch/faiss)
 - [PGVector Documentation](https://github.com/pgvector/pgvector)
 - [Pinecone Documentation](https://docs.pinecone.io/)
 - [Redis Documentation](https://redis.io/docs/)

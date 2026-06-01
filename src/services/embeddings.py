@@ -1,3 +1,5 @@
+import asyncio
+
 from src.services.base import register_service
 
 
@@ -15,11 +17,19 @@ class EmbeddingsService:
         return cls(model_name=config.memory.embedding_model)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings without blocking the event loop."""
         model = self._get_model()
-        return model.encode(texts).tolist()
+        result = await asyncio.to_thread(model.encode, texts)
+        return result.tolist()
 
     async def health_check(self) -> bool:
-        return True
+        """Verify the embedding model can load and produce output."""
+        try:
+            model = self._get_model()
+            test_output = await asyncio.to_thread(model.encode, ["health check"])
+            return test_output is not None and len(test_output) > 0
+        except Exception:
+            return False
 
     async def close(self) -> None:
         self._model = None

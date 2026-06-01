@@ -14,10 +14,10 @@ def get_backend() -> MemoryBackend:
     backend_name = config.memory.backend.lower()
     logger.info(f"Initializing memory backend: {backend_name}")
 
-    if backend_name == "faiss":
-        from memory.backends.faiss import FAISSBackend
+    if backend_name in ("in_memory", "faiss"):
+        from memory.backends.in_memory import InMemoryVectorBackend
 
-        return FAISSBackend()
+        return InMemoryVectorBackend()
     elif backend_name == "pgvector":
         from memory.backends.pgvector import PGVectorBackend
 
@@ -27,7 +27,7 @@ def get_backend() -> MemoryBackend:
 
         return PineconeBackend()
     else:
-        raise ValueError(f"Unknown memory backend: {backend_name}. " f"Valid options: faiss, pgvector, pinecone")
+        raise ValueError(f"Unknown memory backend: {backend_name}. " f"Valid options: in_memory, pgvector, pinecone")
 
 
 # Expose reset for testing

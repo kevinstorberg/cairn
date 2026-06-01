@@ -1,9 +1,19 @@
+import importlib
+import pkgutil
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from db.base import Base
+
+# Auto-import all model modules so Base.metadata is populated for autogenerate
+_models_dir = Path(__file__).resolve().parent.parent / "models"
+if _models_dir.exists():
+    for _, module_name, _ in pkgutil.iter_modules([str(_models_dir)]):
+        if not module_name.startswith("_"):
+            importlib.import_module(f"db.models.{module_name}")
 
 config = context.config
 
