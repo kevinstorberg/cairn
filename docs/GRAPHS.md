@@ -774,8 +774,9 @@ async def async_node(state):
     return {"result": result}
 ```
 
-If you must call async code from a **sync tool** (LangChain tools are sync by default),
-`nest_asyncio` is already applied in `src/tools/__init__.py` to enable nested event loops.
+If a tool needs database or cache access, prefer an async LangChain tool by passing
+the coroutine to `StructuredTool.from_function()`. Sync wrappers around async work
+should live in deliberate app-specific adapters, not in Cairn's global import path.
 
 ---
 

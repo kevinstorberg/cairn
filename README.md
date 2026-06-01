@@ -18,6 +18,13 @@ poetry run alembic upgrade head
 poetry run uvicorn src.app:app --reload
 ```
 
+If port 5432 is already in use locally, override only the host port:
+
+```bash
+POSTGRES_PORT=55432 docker compose up -d db
+poetry run alembic upgrade head
+```
+
 ## Commands
 
 ```bash
@@ -72,7 +79,29 @@ Three-level hierarchy with deep merge (later layers override earlier):
 
 **Environment Variables:** Set `APP_ENV=development` (default), `production`, or `test`. Loads corresponding `.env.{APP_ENV}` file.
 
+**Database:** Cairn assembles database URLs from `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB_<ENV>`. Set `DATABASE_URL_DEVELOPMENT`, `DATABASE_URL_TEST`, or `DATABASE_URL_PRODUCTION` only when you need a full explicit override.
+
 **YAML Config:** Base settings in `config/default.yaml`, graph-specific overrides in `config/graphs/`. All config imported via `load_default_config()` or `load_graph_config(name)`.
+
+## Auth And Policies
+
+Use signed JWTs as the default authorization boundary:
+
+```python
+from fastapi import Depends
+
+from src.policies.base import Permission, require_permission
+
+@router.post("/projects")
+async def create_project(claims: dict = Depends(require_permission(Permission.WRITE))):
+    return {"created_by": claims["sub"]}
+```
+
+`require_permission()` verifies the bearer token with `require_auth()`, reads the
+`role` claim by default, and returns the verified claims. Use
+`require_permission(Permission.WRITE, role_claim="app_role")` if your app stores
+roles under a different claim. Use `require_state_permission()` only when your app
+intentionally populates `request.state.role` in custom middleware.
 
 ## Optional Dependencies
 

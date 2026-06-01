@@ -316,7 +316,10 @@ async def test_with_mocked_s3():
 ```python
 @pytest.mark.asyncio
 async def test_with_mocked_cache():
+    from cache.backends import reset_cache_backend
     from unittest.mock import AsyncMock
+
+    reset_cache_backend()
 
     mock_cache = AsyncMock()
     mock_cache.get.return_value = "cached_value"
@@ -437,7 +440,7 @@ async def sample_todos(test_session):
 - Test happy path AND error cases
 - Use `test_session` for database operations
 - Use `client` for API testing with dependency overrides
-- Reset singletons between tests (`reset_backend()`, `reset_settings()`)
+- Reset singletons between tests (`reset_backend()`, `reset_cache_backend()`, `reset_settings()`)
 
 ### ❌ Don't
 
@@ -504,6 +507,18 @@ from memory.backends import reset_backend
 
 reset_backend()  # Clear singleton
 backend = get_backend()  # Fresh instance
+```
+
+### Cache state leaking between tests
+
+**Problem**: `get_cache_backend()` returns a singleton so separate services share
+cache state, matching application runtime behavior.
+
+**Solution**: Reset the cache backend between tests that depend on empty cache state:
+```python
+from cache.backends import reset_cache_backend
+
+reset_cache_backend()
 ```
 
 ---

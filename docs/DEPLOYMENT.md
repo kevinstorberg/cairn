@@ -29,11 +29,19 @@ Cairn loads configuration in this order (later overrides earlier):
 ```bash
 # .env.default (committed to git) — secrets and runtime vars only
 APP_ENV=development
-DATABASE_URL_DEVELOPMENT=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_dev
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=cairn
+POSTGRES_PASSWORD=cairn
+POSTGRES_DB_DEVELOPMENT=cairn_dev
+POSTGRES_DB_TEST=cairn_test
+POSTGRES_DB_PRODUCTION=cairn_prod
 LOG_LEVEL=INFO
 
 # .env.production (NOT committed - see .gitignore)
-DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db:5432/cairn_prod
+APP_ENV=production
+POSTGRES_HOST=prod-db
+POSTGRES_DB_PRODUCTION=cairn_prod
 REDIS_URL=redis://prod-redis:6379/0
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=...
@@ -44,6 +52,10 @@ LOG_LEVEL=WARNING
 # Environment variable (runtime override)
 export DATABASE_URL_PRODUCTION="postgresql+asyncpg://new-host:5432/cairn_prod"
 ```
+
+`DATABASE_URL_DEVELOPMENT`, `DATABASE_URL_TEST`, and `DATABASE_URL_PRODUCTION`
+are explicit overrides. When they are unset, Cairn assembles the URL from the
+`POSTGRES_*` component settings for the selected environment.
 
 **Note**: Backend selection (memory, cache, storage) is configured in `config/default.yaml`, not via environment variables. See [Backend Switching](BACKENDS.md) for details.
 
@@ -78,6 +90,9 @@ cp .env.default .env.development
 # 2. Start local services
 docker compose up -d db
 
+# If another local PostgreSQL already uses 5432
+POSTGRES_PORT=55432 docker compose up -d db
+
 # 3. Run migrations
 poetry run alembic upgrade head
 
@@ -88,7 +103,9 @@ poetry run uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
 **Configuration** (`.env.development`):
 ```bash
 APP_ENV=development
-DATABASE_URL_DEVELOPMENT=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_dev
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB_DEVELOPMENT=cairn_dev
 
 # Verbose logging
 LOG_LEVEL=DEBUG
@@ -107,7 +124,9 @@ Backend selection lives in `config/default.yaml` (defaults: in_memory, memory ca
 # 1. Create test environment file
 cat > .env.test << EOF
 APP_ENV=test
-DATABASE_URL_TEST=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB_TEST=cairn_test
 LOG_LEVEL=WARNING
 EOF
 
@@ -124,7 +143,9 @@ poetry run pytest
 **Configuration** (`.env.test`):
 ```bash
 APP_ENV=test
-DATABASE_URL_TEST=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB_TEST=cairn_test
 
 # Minimal logging in tests
 LOG_LEVEL=WARNING
@@ -143,7 +164,9 @@ Tests use default backends from `config/default.yaml` (in_memory, memory cache, 
 # 1. Create production environment file (DO NOT COMMIT)
 cat > .env.production << EOF
 APP_ENV=production
-DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db.internal:5432/cairn_prod
+POSTGRES_HOST=prod-db.internal
+POSTGRES_PORT=5432
+POSTGRES_DB_PRODUCTION=cairn_prod
 
 # Service credentials
 REDIS_URL=redis://prod-redis.internal:6379/0
@@ -178,7 +201,9 @@ poetry run gunicorn src.app:app \
 **Configuration** (`.env.production`):
 ```bash
 APP_ENV=production
-DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db.internal:5432/cairn_prod
+POSTGRES_HOST=prod-db.internal
+POSTGRES_PORT=5432
+POSTGRES_DB_PRODUCTION=cairn_prod
 
 # Service credentials
 REDIS_URL=redis://prod-redis.internal:6379/0
@@ -318,11 +343,11 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: cairn_dev
-      POSTGRES_USER: cairn
-      POSTGRES_PASSWORD: cairn_dev_pass
+      POSTGRES_DB: ${POSTGRES_DB_DEVELOPMENT:-cairn_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-cairn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cairn}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -331,7 +356,11 @@ services:
     command: poetry run uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
     environment:
       APP_ENV: development
-      DATABASE_URL_DEVELOPMENT: postgresql+asyncpg://cairn:cairn_dev_pass@postgres:5432/cairn_dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: cairn
+      POSTGRES_PASSWORD: cairn
+      POSTGRES_DB_DEVELOPMENT: cairn_dev
     ports:
       - "8000:8000"
     volumes:
@@ -346,6 +375,9 @@ volumes:
 **Usage**:
 ```bash
 docker-compose -f docker-compose.dev.yml up
+
+# If another local PostgreSQL already uses 5432
+POSTGRES_PORT=55432 docker-compose -f docker-compose.dev.yml up
 ```
 
 ---
@@ -363,7 +395,11 @@ services:
     command: gunicorn src.app:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
     environment:
       APP_ENV: production
-      DATABASE_URL_PRODUCTION: postgresql+asyncpg://cairn:${DB_PASSWORD}@postgres:5432/cairn_prod
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: cairn
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB_PRODUCTION: cairn_prod
       REDIS_URL: redis://redis:6379/0
     env_file:
       - .env.production
@@ -384,8 +420,8 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: cairn_prod
-      POSTGRES_USER: cairn
+      POSTGRES_DB: ${POSTGRES_DB_PRODUCTION:-cairn_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-cairn}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -728,11 +764,11 @@ curl http://localhost:8000/health/detailed
 # Check database is running
 docker-compose ps postgres
 
-# Check connection string
-echo $DATABASE_URL_PRODUCTION
+# Check component settings
+env | grep '^POSTGRES_'
 
-# Test connection manually
-psql $DATABASE_URL_PRODUCTION
+# Or check an explicit override if your app uses one
+echo $DATABASE_URL_PRODUCTION
 
 # Check firewall/security groups (cloud deployments)
 ```

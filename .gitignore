@@ -30,3 +30,7 @@ coverage.xml
 
 # Claude Code
 .claude/
+
+# Local scratch files
+tmp/*
+!tmp/.gitkeep

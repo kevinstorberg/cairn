@@ -186,13 +186,14 @@ context = ToolContext(
 
 ## Database Access in Tools
 
-Tools are **synchronous** (LangChain requirement) but Cairn uses **async** database. Use `nest_asyncio` to bridge the gap.
+Prefer async LangChain tools for database and cache work. Cairn uses async SQLAlchemy,
+so tool factories should expose an async coroutine to LangChain instead of trying to
+drive the event loop from inside a synchronous wrapper.
 
-### Pattern: Async DB in Sync Tool
+### Pattern: Async DB Tool
 
 ```python
-import asyncio
-from langchain_core.tools import tool
+from langchain_core.tools import StructuredTool
 from src.tools import register_tool
 from db.connection import get_session_factory
 
@@ -200,8 +201,7 @@ from db.connection import get_session_factory
 def create_get_todo_tool(context: ToolContext):
     """Create tool that fetches todo from database."""
 
-    @tool
-    def get_todo(todo_id: str) -> dict:
+    async def get_todo(todo_id: str) -> dict:
         """Get todo by ID from database.
 
         Args:
@@ -210,34 +210,31 @@ def create_get_todo_tool(context: ToolContext):
         Returns:
             Todo information dictionary
         """
-        async def _fetch():
-            from sqlalchemy import select
-            from db.models.todo import Todo
+        from sqlalchemy import select
+        from db.models.todo import Todo
 
-            factory = get_session_factory()
-            async with factory() as session:
-                result = await session.execute(
-                    select(Todo).where(Todo.id == todo_id)
-                )
-                todo = result.scalar_one_or_none()
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(Todo).where(Todo.id == todo_id)
+            )
+            todo = result.scalar_one_or_none()
 
-                if not todo:
-                    return {"error": "Todo not found"}
+            if not todo:
+                return {"error": "Todo not found"}
 
-                return {
-                    "id": str(todo.id),
-                    "title": todo.title,
-                    "status": todo.status.value
-                }
+            return {
+                "id": str(todo.id),
+                "title": todo.title,
+                "status": todo.status.value
+            }
 
-        # Run async code in sync context
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(_fetch())
-
-    return get_todo
+    return StructuredTool.from_function(
+        coroutine=get_todo,
+        name="get_todo",
+        description="Get todo by ID from the database",
+    )
 ```
-
-**Why it works**: Cairn applies `nest_asyncio.apply()` in `src/tools/__init__.py`, allowing `run_until_complete()` inside an already-running loop.
 
 ### Pattern: Database Write Operations
 
@@ -246,8 +243,7 @@ def create_get_todo_tool(context: ToolContext):
 def create_create_todo_tool(context: ToolContext):
     """Create tool that adds todo to database."""
 
-    @tool
-    def create_todo(title: str, description: str = "") -> dict:
+    async def create_todo(title: str, description: str = "") -> dict:
         """Create a new todo.
 
         Args:
@@ -257,30 +253,30 @@ def create_create_todo_tool(context: ToolContext):
         Returns:
             Created todo information
         """
-        async def _create():
-            from db.models.todo import Todo, TodoStatus
+        from db.models.todo import Todo, TodoStatus
 
-            factory = get_session_factory()
-            async with factory() as session:
-                todo = Todo(
-                    title=title,
-                    description=description,
-                    status=TodoStatus.PENDING
-                )
-                session.add(todo)
-                await session.commit()
-                await session.refresh(todo)
+        factory = get_session_factory()
+        async with factory() as session:
+            todo = Todo(
+                title=title,
+                description=description,
+                status=TodoStatus.PENDING
+            )
+            session.add(todo)
+            await session.commit()
+            await session.refresh(todo)
 
-                return {
-                    "id": str(todo.id),
-                    "title": todo.title,
-                    "status": todo.status.value
-                }
+            return {
+                "id": str(todo.id),
+                "title": todo.title,
+                "status": todo.status.value
+            }
 
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(_create())
-
-    return create_todo
+    return StructuredTool.from_function(
+        coroutine=create_todo,
+        name="create_todo",
+        description="Create a new todo",
+    )
 ```
 
 ---
@@ -520,11 +516,12 @@ def example_tool(param1: str, param2: int = 10) -> dict:
 ### Tool with Cache
 
 ```python
+from langchain_core.tools import StructuredTool
+
 @register_tool("cached_lookup")
 def create_cached_tool(context: ToolContext):
     """Tool that caches results."""
 
-    @tool
     async def cached_lookup(query: str) -> dict:
         """Lookup with caching."""
         from cache.backends import get_cache_backend
@@ -545,37 +542,42 @@ def create_cached_tool(context: ToolContext):
 
         return {"result": result, "from_cache": False}
 
-    return cached_lookup
+    return StructuredTool.from_function(
+        coroutine=cached_lookup,
+        name="cached_lookup",
+        description="Lookup data with cache support",
+    )
 ```
 
 ### Tool with Memory Backend
 
 ```python
+from langchain_core.tools import StructuredTool
+
 @register_tool("semantic_search")
 def create_search_tool(context: ToolContext):
     """Tool that searches vector embeddings."""
 
-    @tool
-    def semantic_search(query: str, limit: int = 5) -> list[dict]:
+    async def semantic_search(query: str, limit: int = 5) -> list[dict]:
         """Search using semantic similarity."""
         from memory.backends import get_backend
         from src.services.embeddings import EmbeddingsService
 
-        async def _search():
-            # Generate query embedding
-            embeddings = EmbeddingsService()
-            query_embedding = (await embeddings.embed([query]))[0]
+        # Generate query embedding
+        embeddings = EmbeddingsService()
+        query_embedding = (await embeddings.embed([query]))[0]
 
-            # Search
-            backend = get_backend()
-            results = await backend.search(query_embedding, limit=limit)
+        # Search
+        backend = get_backend()
+        results = await backend.search(query_embedding, limit=limit)
 
-            return results
+        return results
 
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(_search())
-
-    return semantic_search
+    return StructuredTool.from_function(
+        coroutine=semantic_search,
+        name="semantic_search",
+        description="Search memory using semantic similarity",
+    )
 ```
 
 ---
@@ -594,17 +596,26 @@ ls src/tools/*.py | grep -v __pycache__ | grep -v context.py
 
 ### "Event loop already running" error
 
-**Problem**: Using `asyncio.run()` instead of `run_until_complete()`.
+**Problem**: Calling `asyncio.run()` or `loop.run_until_complete()` from a sync
+tool while FastAPI, uvicorn, or LangGraph already owns the running event loop.
 
-**Solution**: Use `loop.run_until_complete()`:
+**Solution**: Make the tool async and pass it as the `coroutine` when constructing
+the LangChain tool:
 ```python
-# Wrong
-result = asyncio.run(async_func())
+from langchain_core.tools import StructuredTool
 
-# Correct
-loop = asyncio.get_event_loop()
-result = loop.run_until_complete(async_func())
+async def fetch_data(item_id: str) -> dict:
+    return await async_lookup(item_id)
+
+tool = StructuredTool.from_function(
+    coroutine=fetch_data,
+    name="fetch_data",
+    description="Fetch data by ID",
+)
 ```
+
+Sync wrappers around async database work are unsupported in a running event loop
+unless your application provides a deliberate bridge at the app boundary.
 
 ### Tool returns None
 
@@ -630,4 +641,3 @@ def create_tool(context: ToolContext):
 - [LangChain Tools Documentation](https://python.langchain.com/docs/modules/agents/tools/)
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
 - [Async SQLAlchemy](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
-- [nest_asyncio Documentation](https://github.com/erdewit/nest_asyncio)

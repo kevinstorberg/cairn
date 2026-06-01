@@ -8,6 +8,7 @@ from lib.cairn.paths import get_repo_root
 _repo_root = get_repo_root(__file__)
 _env_default = _repo_root / ".env.default"
 _env_file = _repo_root / f".env.{os.environ.get('APP_ENV', 'development')}"
+_DATABASE_ENVS = {"development", "test", "production"}
 
 
 class Settings(BaseSettings):
@@ -20,6 +21,14 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_NAME: str = "cairn"
     APP_PORT: int = 8000
+
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = "cairn"
+    POSTGRES_PASSWORD: str = "cairn"
+    POSTGRES_DB_DEVELOPMENT: str = "cairn_dev"
+    POSTGRES_DB_TEST: str = "cairn_test"
+    POSTGRES_DB_PRODUCTION: str = "cairn_prod"
 
     DATABASE_URL_DEVELOPMENT: str = ""
     DATABASE_URL_TEST: str = ""
@@ -43,12 +52,41 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        env_upper = self.APP_ENV.upper()
+        return self.database_url_for()
+
+    def database_url_for(self, env: str | None = None) -> str:
+        env_name = (env or self.APP_ENV).lower()
+        if env_name not in _DATABASE_ENVS:
+            valid = ", ".join(sorted(_DATABASE_ENVS))
+            raise ValueError(f"Unknown database environment '{env_name}'. Expected one of: {valid}")
+
+        env_upper = env_name.upper()
         attr_name = f"DATABASE_URL_{env_upper}"
         url = getattr(self, attr_name, "")
-        if not url:
-            raise ValueError(f"{attr_name} is not set for APP_ENV={self.APP_ENV}")
-        return url
+        if url:
+            return url
+
+        database_attr = f"POSTGRES_DB_{env_upper}"
+        required_components = {
+            "POSTGRES_HOST": self.POSTGRES_HOST,
+            "POSTGRES_PORT": self.POSTGRES_PORT,
+            "POSTGRES_USER": self.POSTGRES_USER,
+            "POSTGRES_PASSWORD": self.POSTGRES_PASSWORD,
+            database_attr: getattr(self, database_attr, ""),
+        }
+        missing = [name for name, value in required_components.items() if value in (None, "")]
+        if missing:
+            missing_fields = ", ".join(missing)
+            raise ValueError(
+                f"Cannot assemble database URL for environment '{env_name}'. "
+                f"Set {attr_name} or provide required Postgres settings: {missing_fields}"
+            )
+
+        database_name = required_components[database_attr]
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{database_name}"
+        )
 
 
 @lru_cache(maxsize=1)

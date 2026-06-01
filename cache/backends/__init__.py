@@ -1,7 +1,9 @@
 from cache.base import CacheBackend
 from config.loader import load_default_config
+from lib.cairn.singleton import singleton
 
 
+@singleton
 def get_cache_backend() -> CacheBackend:
     """Get cache backend instance based on configuration."""
     config = load_default_config()
@@ -17,3 +19,6 @@ def get_cache_backend() -> CacheBackend:
         return RedisCacheBackend()
 
     raise ValueError(f"Unknown cache backend: {backend_name}. " f"Valid options: memory, redis")
+
+
+reset_cache_backend = get_cache_backend.reset

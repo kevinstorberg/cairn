@@ -3,13 +3,8 @@ import logging
 import pkgutil
 from typing import Any, Callable
 
-import nest_asyncio
-
 from lib.cairn.paths import get_module_dir
 from src.tools.context import ToolContext
-
-# Allow nested event loops for tools that need to run async code synchronously
-nest_asyncio.apply()
 
 logger = logging.getLogger(__name__)
 

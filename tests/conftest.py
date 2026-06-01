@@ -19,6 +19,12 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from db.connection import get_session
 from src.app import create_app
+from src.settings import get_settings
+
+
+def get_test_database_url() -> str:
+    """Resolve the template's test database URL through runtime settings."""
+    return get_settings().database_url_for("test")
 
 
 @pytest.fixture
@@ -38,7 +44,7 @@ def test_engine():
     Uses NullPool to avoid connection sharing issues in tests.
     """
     engine = create_async_engine(
-        "postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test",
+        get_test_database_url(),
         echo=False,
         poolclass=NullPool,  # Critical: No pooling in tests
     )

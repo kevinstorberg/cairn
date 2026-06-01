@@ -7,8 +7,12 @@ services:
       - .env.default
       - .env.development
     environment:
-      # Override DB host for container-to-container networking
-      DATABASE_URL_DEVELOPMENT: postgresql+asyncpg://cairn:cairn@db:5432/cairn_dev
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: cairn
+      POSTGRES_PASSWORD: cairn
+      POSTGRES_DB_DEVELOPMENT: cairn_dev
+      DATABASE_URL_DEVELOPMENT: ""
     depends_on:
       db:
         condition: service_healthy
@@ -18,11 +22,11 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: cairn
-      POSTGRES_PASSWORD: cairn
-      POSTGRES_DB: cairn_dev
+      POSTGRES_USER: ${POSTGRES_USER:-cairn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cairn}
+      POSTGRES_DB: ${POSTGRES_DB_DEVELOPMENT:-cairn_dev}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
