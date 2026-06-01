@@ -11,6 +11,12 @@ _env_file = _repo_root / f".env.{os.environ.get('APP_ENV', 'development')}"
 
 
 class Settings(BaseSettings):
+    """Secrets and runtime env vars only.
+
+    Structural config (backend selection, model, pool sizes) lives in
+    config/default.yaml and is accessed via config.loader.load_default_config().
+    """
+
     APP_ENV: str = "development"
     APP_NAME: str = "cairn"
     APP_PORT: int = 8000
@@ -19,18 +25,12 @@ class Settings(BaseSettings):
     DATABASE_URL_TEST: str = ""
     DATABASE_URL_PRODUCTION: str = ""
 
-    MEMORY_BACKEND: str = "faiss"
-    MEMORY_STORE_PATH: str = "./memory_store"
-
-    CACHE_BACKEND: str = "memory"
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    LLM_PROVIDER: str = "anthropic"
-    LLM_MODEL: str = "claude-sonnet-4-6"
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = "change-me-in-production-use-a-long-random-value"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 60
 

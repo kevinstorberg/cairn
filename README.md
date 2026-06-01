@@ -37,7 +37,7 @@ make check           # lint + format-check + test
 config/          YAML config, prompts, loader
   prompts/       Prompt template directory (load with config/prompts/loader.py)
 db/              SQLAlchemy models, Alembic migrations
-memory/          Vector store backends (FAISS, pgvector, Pinecone)
+memory/          Vector store backends (in-memory, pgvector, Pinecone)
 cache/           Key-value backends (in-memory, Redis)
 assets/          File storage backends (local, S3) - template infrastructure
 lib/             Shared utilities (paths, singleton pattern)

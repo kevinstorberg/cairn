@@ -8,7 +8,7 @@ database:
   pool_size: 5
 
 memory:
-  backend: faiss
+  backend: in_memory
   embedding_model: all-MiniLM-L6-v2
   embedding_dimension: 384
 
@@ -21,6 +21,5 @@ storage:
   local_path: ./storage
 
 security:
-  rate_limit_per_minute: 60
   cors_origins:
     - "*"

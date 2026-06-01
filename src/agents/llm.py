@@ -1,5 +1,6 @@
 from typing import Any
 
+from config.loader import load_default_config
 from config.models import LLMConfig
 
 
@@ -10,13 +11,15 @@ def build_llm(
     max_tokens: int | None = None,
     config: LLMConfig | None = None,
 ) -> Any:
-    from src.settings import get_settings
+    """Build an LLM instance.
 
-    settings = get_settings()
+    Resolution order for each parameter: explicit arg > config arg > default.yaml
+    """
+    default = load_default_config().llm
 
-    resolved_provider = provider or (config.provider if config else None) or settings.LLM_PROVIDER
-    resolved_model = model or (config.model if config else None) or settings.LLM_MODEL
-    resolved_max_tokens = max_tokens or (config.max_tokens if config else None) or 4096
+    resolved_provider = provider or (config.provider if config else None) or default.provider
+    resolved_model = model or (config.model if config else None) or default.model
+    resolved_max_tokens = max_tokens or (config.max_tokens if config else None) or default.max_tokens
 
     if resolved_provider == "anthropic":
         from langchain_anthropic import ChatAnthropic

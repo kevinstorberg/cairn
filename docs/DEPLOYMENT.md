@@ -27,26 +27,25 @@ Cairn loads configuration in this order (later overrides earlier):
 
 **Example**:
 ```bash
-# .env.default (committed to git)
+# .env.default (committed to git) — secrets and runtime vars only
 APP_ENV=development
-DATABASE_URL_DEVELOPMENT=postgresql+asyncpg://localhost:5432/cairn_dev
-MEMORY_BACKEND=faiss
-CACHE_BACKEND=memory
-STORAGE_BACKEND=local
+DATABASE_URL_DEVELOPMENT=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_dev
 LOG_LEVEL=INFO
 
 # .env.production (NOT committed - see .gitignore)
 DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db:5432/cairn_prod
-MEMORY_BACKEND=pgvector
-CACHE_BACKEND=redis
 REDIS_URL=redis://prod-redis:6379/0
-STORAGE_BACKEND=s3
 AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+S3_BUCKET=cairn-prod-storage
 LOG_LEVEL=WARNING
 
 # Environment variable (runtime override)
 export DATABASE_URL_PRODUCTION="postgresql+asyncpg://new-host:5432/cairn_prod"
 ```
+
+**Note**: Backend selection (memory, cache, storage) is configured in `config/default.yaml`, not via environment variables. See [Backend Switching](BACKENDS.md) for details.
 
 ### APP_ENV Variable
 
@@ -77,7 +76,7 @@ APP_ENV=production  # Loads .env.production
 cp .env.default .env.development
 
 # 2. Start local services
-docker-compose up -d postgres
+docker compose up -d db
 
 # 3. Run migrations
 poetry run alembic upgrade head
@@ -89,18 +88,13 @@ poetry run uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
 **Configuration** (`.env.development`):
 ```bash
 APP_ENV=development
-DATABASE_URL_DEVELOPMENT=postgresql+asyncpg://localhost:5432/cairn_dev
-
-# Local backends
-MEMORY_BACKEND=faiss
-MEMORY_STORE_PATH=./memory_store
-CACHE_BACKEND=memory
-STORAGE_BACKEND=local
-STORAGE_PATH=./storage
+DATABASE_URL_DEVELOPMENT=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_dev
 
 # Verbose logging
 LOG_LEVEL=DEBUG
 ```
+
+Backend selection lives in `config/default.yaml` (defaults: in_memory, memory cache, local storage).
 
 ---
 
@@ -113,10 +107,7 @@ LOG_LEVEL=DEBUG
 # 1. Create test environment file
 cat > .env.test << EOF
 APP_ENV=test
-DATABASE_URL_TEST=postgresql+asyncpg://localhost:5432/cairn_test
-MEMORY_BACKEND=faiss
-CACHE_BACKEND=memory
-STORAGE_BACKEND=local
+DATABASE_URL_TEST=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test
 LOG_LEVEL=WARNING
 EOF
 
@@ -133,16 +124,13 @@ poetry run pytest
 **Configuration** (`.env.test`):
 ```bash
 APP_ENV=test
-DATABASE_URL_TEST=postgresql+asyncpg://localhost:5432/cairn_test
-
-# Fast local backends
-MEMORY_BACKEND=faiss
-CACHE_BACKEND=memory
-STORAGE_BACKEND=local
+DATABASE_URL_TEST=postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test
 
 # Minimal logging in tests
 LOG_LEVEL=WARNING
 ```
+
+Tests use default backends from `config/default.yaml` (in_memory, memory cache, local storage).
 
 ---
 
@@ -157,22 +145,24 @@ cat > .env.production << EOF
 APP_ENV=production
 DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db.internal:5432/cairn_prod
 
-# Production backends
-MEMORY_BACKEND=pgvector
-CACHE_BACKEND=redis
+# Service credentials
 REDIS_URL=redis://prod-redis.internal:6379/0
-STORAGE_BACKEND=s3
 AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
 S3_BUCKET=cairn-prod-storage
 
 # API keys (use secrets manager in real deployment)
 ANTHROPIC_API_KEY=sk-ant-...
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=...
 
 # Production logging
 LOG_LEVEL=WARNING
 EOF
+
+# Also update config/default.yaml for production backends:
+#   memory.backend: pgvector
+#   cache.backend: redis
+#   storage.backend: s3
 
 # 2. Run migrations
 APP_ENV=production poetry run alembic upgrade head
@@ -190,11 +180,8 @@ poetry run gunicorn src.app:app \
 APP_ENV=production
 DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db.internal:5432/cairn_prod
 
-# Production backends
-MEMORY_BACKEND=pgvector
-CACHE_BACKEND=redis
+# Service credentials
 REDIS_URL=redis://prod-redis.internal:6379/0
-STORAGE_BACKEND=s3
 AWS_REGION=us-east-1
 S3_BUCKET=cairn-prod-storage
 
@@ -206,6 +193,16 @@ AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 # Production settings
 LOG_LEVEL=WARNING
 WORKERS=4
+```
+
+Backend selection (`config/default.yaml` for production):
+```yaml
+memory:
+  backend: pgvector
+cache:
+  backend: redis
+storage:
+  backend: s3
 ```
 
 ---
@@ -368,9 +365,6 @@ services:
       APP_ENV: production
       DATABASE_URL_PRODUCTION: postgresql+asyncpg://cairn:${DB_PASSWORD}@postgres:5432/cairn_prod
       REDIS_URL: redis://redis:6379/0
-      MEMORY_BACKEND: pgvector
-      CACHE_BACKEND: redis
-      STORAGE_BACKEND: s3
     env_file:
       - .env.production
     ports:
@@ -559,46 +553,56 @@ Before running migrations in production:
 
 ## Backend Configuration
 
+Backend selection is controlled by `config/default.yaml`. Secrets and credentials
+remain in environment variables (`.env.*` files). See [Backend Switching](BACKENDS.md)
+for full details.
+
 ### Development → Production Checklist
 
 #### Memory Backend
 
-**Development** (`.env.development`):
-```bash
-MEMORY_BACKEND=faiss
-MEMORY_STORE_PATH=./memory_store
+**Development** (`config/default.yaml`):
+```yaml
+memory:
+  backend: in_memory
 ```
 
-**Production** (`.env.production`):
-```bash
-MEMORY_BACKEND=pgvector
-DATABASE_URL_PRODUCTION=postgresql+asyncpg://prod-db:5432/cairn_prod
+**Production** (`config/default.yaml`):
+```yaml
+memory:
+  backend: pgvector
 ```
 
 **Migration steps**:
 1. Install pgvector extension: `CREATE EXTENSION vector;`
-2. Export FAISS data (if any) before switching
-3. Change environment variable
+2. Export in-memory data (if any) before switching
+3. Update `config/default.yaml`
 4. Test semantic search functionality
 
 ---
 
 #### Cache Backend
 
-**Development** (`.env.development`):
-```bash
-CACHE_BACKEND=memory
+**Development** (`config/default.yaml`):
+```yaml
+cache:
+  backend: memory
 ```
 
-**Production** (`.env.production`):
+**Production** (`config/default.yaml`):
+```yaml
+cache:
+  backend: redis
+```
+
+Also set in `.env.production`:
 ```bash
-CACHE_BACKEND=redis
 REDIS_URL=redis://prod-redis:6379/0
 ```
 
 **Migration steps**:
 1. Deploy Redis instance
-2. Change environment variable
+2. Update `config/default.yaml` and set `REDIS_URL`
 3. No data migration needed (cache is ephemeral)
 4. Test cache operations
 
@@ -606,15 +610,21 @@ REDIS_URL=redis://prod-redis:6379/0
 
 #### Storage Backend
 
-**Development** (`.env.development`):
-```bash
-STORAGE_BACKEND=local
-STORAGE_PATH=./storage
+**Development** (`config/default.yaml`):
+```yaml
+storage:
+  backend: local
+  local_path: ./storage
 ```
 
-**Production** (`.env.production`):
+**Production** (`config/default.yaml`):
+```yaml
+storage:
+  backend: s3
+```
+
+Also set in `.env.production`:
 ```bash
-STORAGE_BACKEND=s3
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
@@ -622,31 +632,9 @@ S3_BUCKET=cairn-prod-storage
 ```
 
 **Migration steps**:
-1. Create S3 bucket
-2. Set up IAM credentials
-3. Run migration script to copy existing files:
-```python
-import asyncio
-from pathlib import Path
-from assets.backends import get_storage_backend
-
-async def migrate_to_s3():
-    local_path = Path("./storage")
-
-    # Switch to S3
-    os.environ["STORAGE_BACKEND"] = "s3"
-    s3_storage = get_storage_backend()
-
-    # Upload all local files
-    for file_path in local_path.rglob("*"):
-        if file_path.is_file():
-            relative_key = str(file_path.relative_to(local_path))
-            content = file_path.read_bytes()
-            await s3_storage.upload(relative_key, content, "application/octet-stream")
-            print(f"Migrated: {relative_key}")
-
-asyncio.run(migrate_to_s3())
-```
+1. Create S3 bucket and set up IAM credentials
+2. Update `config/default.yaml` and set AWS env vars
+3. Run migration script (see [Backend Switching Guide](BACKENDS.md#migration-guide))
 4. Test file upload/download
 
 ---
@@ -655,7 +643,7 @@ asyncio.run(migrate_to_s3())
 
 ### Basic Health Endpoint
 
-**Already implemented** in `src/routes/health.py`:
+**Already implemented** in `src/routers/health.py`:
 
 ```python
 @router.get("/health")
@@ -666,7 +654,7 @@ async def health():
 
 ### Advanced Health Check
 
-**Add to `src/routes/health.py`**:
+**Add to `src/routers/health.py`**:
 
 ```python
 from db.connection import get_session_factory
