@@ -21,18 +21,21 @@ Create a new graph in 3 steps:
 
 1. **Create config**: `config/graphs/my_graph.yaml`
 2. **Create builder**: `src/graphs/my_graph.py`
-3. **Register route**: Add to `src/routes/`
+3. **Register route**: Add to `src/routers/`
 
 ```python
 # 1. config/graphs/my_graph.yaml
-graph_name: my_graph
-model: claude-3-5-sonnet-20241022
 tools:
   - example_tool
+llm:
+  model: claude-sonnet-4-6
 
 # 2. src/graphs/my_graph.py
 from langgraph.graph import StateGraph, END
 from src.models.state import BaseState
+from src.agents.llm import build_llm
+from src.tools import load_tools
+from src.tools.context import ToolContext
 from config.loader import load_graph_config
 
 class MyGraphState(BaseState):
@@ -40,12 +43,13 @@ class MyGraphState(BaseState):
 
 def build_my_graph():
     config = load_graph_config("my_graph")
-    tools = load_tools(config.tools, ToolContext.from_graph_config(config))
-    llm = build_llm(config.llm.model, tools)
+    context = ToolContext.from_graph_config(config)
+    tools = load_tools(config.tools, context)
+    llm = build_llm(config=config.llm).bind_tools(tools)
 
     def process(state: MyGraphState):
         response = llm.invoke(state["messages"])
-        return {"messages": [response]}
+        return {"messages": [response], "result": response.content}
 
     graph = StateGraph(MyGraphState)
     graph.add_node("process", process)
@@ -54,8 +58,9 @@ def build_my_graph():
 
     return graph.compile()
 
-# 3. src/routes/my_graph.py
+# 3. src/routers/my_graph.py
 from fastapi import APIRouter
+from langchain_core.messages import HumanMessage
 from src.graphs.my_graph import build_my_graph
 
 router = APIRouter(prefix="/my-graph", tags=["my-graph"])
@@ -77,13 +82,12 @@ Each graph has a YAML configuration file in `config/graphs/`:
 
 ```yaml
 # config/graphs/my_graph.yaml
-graph_name: my_graph
-description: "Description of what this graph does"
 
-# Model configuration
-model: claude-3-5-sonnet-20241022
-temperature: 0.7
-max_tokens: 4000
+# LLM configuration (overrides default.yaml)
+llm:
+  provider: anthropic
+  model: claude-sonnet-4-6
+  max_tokens: 4000
 
 # Tools this graph can use
 tools:
@@ -91,18 +95,13 @@ tools:
   - create_todo
   - search_documents
 
-# Graph-specific settings
-settings:
-  max_retries: 3
-  timeout: 120
-  enable_streaming: true
+# Graph-level validation rules
+validation:
+  max_message_length: 10000
+  allowed_roles: ["user", "admin"]
 
-# Custom configuration (accessed via config.custom)
-custom:
-  specialized_setting: "value"
-  feature_flags:
-    enable_caching: true
-    use_memory: false
+# Enable checkpointing for this graph
+checkpointing: true
 ```
 
 ### Loading Configuration
@@ -110,17 +109,15 @@ custom:
 ```python
 from config.loader import load_graph_config
 
-# Load graph-specific config
+# Load graph-specific config (inherits defaults from config/default.yaml)
 config = load_graph_config("my_graph")
 
 # Access fields
-model_name = config.llm.model  # "claude-3-5-sonnet-20241022"
-tools_list = config.tools  # ["get_user", "create_todo", ...]
-timeout = config.settings.get("timeout", 60)  # 120
-
-# Access custom settings
-specialized = config.custom.get("specialized_setting")  # "value"
-use_caching = config.custom.get("feature_flags", {}).get("enable_caching")  # True
+model_name = config.llm.model       # "claude-sonnet-4-6"
+provider = config.llm.provider       # "anthropic"
+tools_list = config.tools            # ["get_user", "create_todo", ...]
+use_checkpoints = config.checkpointing  # True
+validation = config.validation       # {"max_message_length": 10000, ...}
 ```
 
 ### Default Configuration
@@ -130,26 +127,22 @@ use_caching = config.custom.get("feature_flags", {}).get("enable_caching")  # Tr
 Contains defaults inherited by all graphs:
 
 ```yaml
-# Default model
-model: claude-3-5-sonnet-20241022
-temperature: 0.7
-max_tokens: 2000
+llm:
+  provider: anthropic
+  model: claude-sonnet-4-6
+  max_tokens: 4096
 
-# Default tools (all graphs have access)
-tools: []
+memory:
+  backend: in_memory
+  embedding_model: all-MiniLM-L6-v2
+  embedding_dimension: 384
 
-# Common settings
-settings:
-  max_retries: 2
-  timeout: 60
-
-# Tools configuration (shared across graphs)
-tools_config:
-  max_results: 10
-  search_depth: 5
+cache:
+  backend: memory
+  default_ttl: 300
 ```
 
-Graph-specific configs override these defaults.
+Graph-specific configs in `config/graphs/` override these defaults via deep merge.
 
 ---
 
@@ -186,9 +179,10 @@ class MyGraphState(BaseState):
 
 ```python
 from langgraph.graph import StateGraph, END
-from src.graphs.base import build_llm
+from src.agents.llm import build_llm
 from src.tools import load_tools
 from src.tools.context import ToolContext
+from config.loader import load_graph_config
 
 def build_my_graph():
     # 1. Load configuration
@@ -198,8 +192,8 @@ def build_my_graph():
     context = ToolContext.from_graph_config(config)
     tools = load_tools(config.tools, context)
 
-    # 3. Build LLM
-    llm = build_llm(config.llm.model, tools)
+    # 3. Build LLM and bind tools
+    llm = build_llm(config=config.llm).bind_tools(tools)
 
     # 4. Define nodes
     def process_node(state: MyGraphState):
@@ -222,7 +216,7 @@ def build_my_graph():
 def build_complex_graph():
     config = load_graph_config("complex_graph")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
-    llm = build_llm(config.llm.model, tools)
+    llm = build_llm(config=config.llm).bind_tools(tools)
 
     # Node 1: Validate input
     def validate(state: ComplexState):
@@ -336,7 +330,7 @@ class MyGraphState(BaseState):
 
 ```python
 def llm_node(state: MyGraphState):
-    llm = build_llm(config.llm.model, tools)
+    llm = build_llm(config=config.llm)
     response = llm.invoke(state["messages"])
     return {"messages": [response]}
 ```
@@ -347,7 +341,8 @@ def llm_node(state: MyGraphState):
 
 ```python
 def agent_node(state: MyGraphState):
-    llm = build_llm(config.llm.model, tools)  # Tools bound to LLM
+    llm = build_llm(config=config.llm).bind_tools(tools)
+
     response = llm.invoke(state["messages"])
 
     # If LLM called tools, response includes tool_calls
@@ -432,7 +427,7 @@ def build_my_graph():
     tools = load_tools(config.tools, context)
 
     # Bind to LLM
-    llm = build_llm(config.llm.model, tools)
+    llm = build_llm(config=config.llm).bind_tools(tools)
 
     # Now LLM can call tools
     ...
@@ -454,7 +449,7 @@ def build_conditional_graph():
         else:
             tools = load_tools(["create_todo"], context)
 
-        llm = build_llm(config.llm.model, tools)
+        llm = build_llm(config=config.llm).bind_tools(tools)
         response = llm.invoke(state["messages"])
         return {"messages": [response]}
 
@@ -467,7 +462,7 @@ def build_conditional_graph():
 
 ```python
 def process_tools(state: MyGraphState):
-    llm = build_llm(config.llm.model, tools)
+    llm = build_llm(config=config.llm).bind_tools(tools)
     response = llm.invoke(state["messages"])
 
     tool_results = []
@@ -642,21 +637,19 @@ class UnclearState(BaseState):
 ### Configuration
 
 ```yaml
-# Good
-graph_name: user_search
-model: claude-3-5-sonnet-20241022
+# Good — config/graphs/user_search.yaml
+llm:
+  model: claude-sonnet-4-6
 tools:
   - search_users
   - get_user_details
-settings:
+validation:
   max_results: 10
-  timeout: 30
 
 # Bad
-graph_name: graph1  # Unclear name
-model: gpt-4  # Hardcoded in code instead
+# No llm section (falls back to default, which is fine, but be explicit)
 # No tools listed
-# No settings
+# Validation rules hardcoded in Python instead of config
 ```
 
 ---
@@ -673,7 +666,7 @@ from langgraph.graph import StateGraph
 def build_streaming_graph():
     config = load_graph_config("streaming")
     tools = load_tools(config.tools, ToolContext.from_graph_config(config))
-    llm = build_llm(config.llm.model, tools)
+    llm = build_llm(config=config.llm).bind_tools(tools)
 
     async def stream_node(state: StreamingState):
         messages = state["messages"]

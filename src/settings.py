@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = "change-me-in-production-use-a-long-random-value"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 60
 

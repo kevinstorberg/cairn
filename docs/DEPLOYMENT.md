@@ -76,7 +76,7 @@ APP_ENV=production  # Loads .env.production
 cp .env.default .env.development
 
 # 2. Start local services
-docker-compose up -d postgres
+docker compose up -d db
 
 # 3. Run migrations
 poetry run alembic upgrade head
@@ -643,7 +643,7 @@ S3_BUCKET=cairn-prod-storage
 
 ### Basic Health Endpoint
 
-**Already implemented** in `src/routes/health.py`:
+**Already implemented** in `src/routers/health.py`:
 
 ```python
 @router.get("/health")
@@ -654,7 +654,7 @@ async def health():
 
 ### Advanced Health Check
 
-**Add to `src/routes/health.py`**:
+**Add to `src/routers/health.py`**:
 
 ```python
 from db.connection import get_session_factory

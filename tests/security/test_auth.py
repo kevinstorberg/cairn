@@ -73,7 +73,7 @@ class TestRequireAuth:
         from fastapi import HTTPException
 
         payload = {"sub": "user-1", "iat": int(time.time()), "exp": int(time.time()) + 3600}
-        token = jwt.encode(payload, "wrong-secret", algorithm="HS256")
+        token = jwt.encode(payload, "wrong-secret-that-is-at-least-32-bytes-long", algorithm="HS256")
 
         with pytest.raises(HTTPException) as exc_info:
             await require_auth(token)
