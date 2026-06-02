@@ -1,210 +1,115 @@
-# Database Patterns for Cairn
+# Database Patterns
 
-This document covers common database patterns and pitfalls discovered during template testing.
+This file documents SQLAlchemy pitfalls that are easy to forget and not obvious
+from the template source. Authoritative implementations live in `db/` and
+`tests/conftest.py`.
 
 ## PostgreSQL ARRAY Types
 
-**Problem**: Using Python `float` in `ARRAY()` causes runtime errors.
+Use SQLAlchemy types inside PostgreSQL `ARRAY()`, not Python primitives.
 
-**Wrong**:
-```python
-from sqlalchemy.dialects.postgresql import ARRAY
-
-embedding: Mapped[list[float]] = mapped_column(ARRAY(float))  # ❌ WRONG
-```
-
-**Correct**:
 ```python
 from sqlalchemy import Float
 from sqlalchemy.dialects.postgresql import ARRAY
 
-embedding: Mapped[list[float]] = mapped_column(ARRAY(Float))  # ✅ CORRECT
+embedding: Mapped[list[float]] = mapped_column(ARRAY(Float))
 ```
 
-**Rule**: Always use SQLAlchemy types (`Float`, `String`, `Integer`) inside `ARRAY()`, never Python primitives.
-
-**Why**: SQLAlchemy needs type objects that can be compiled to SQL. Python's `float` is not a SQLAlchemy type.
-
----
+`ARRAY(float)` fails because Python `float` is not a SQLAlchemy type object.
 
 ## Self-Referential Relationships
 
-**Problem**: Parent/child relationships without explicit configuration cause "ambiguous foreign keys" errors.
-
-**Solution**: Always specify `foreign_keys` and `remote_side`:
+Self-referential relationships need explicit `foreign_keys` and `remote_side`.
 
 ```python
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-class Todo(Base):
-    __tablename__ = "todos"
+
+class Node(Base):
+    __tablename__ = "nodes"
 
     id: Mapped[str] = mapped_column(primary_key=True)
-    parent_id: Mapped[str | None] = mapped_column(ForeignKey("todos.id"), nullable=True)
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey("nodes.id"))
 
-    # Parent → Children relationship
-    subtasks: Mapped[list["Todo"]] = relationship(
-        "Todo",
+    children: Mapped[list["Node"]] = relationship(
+        "Node",
         back_populates="parent",
-        foreign_keys="[Todo.parent_id]",  # ✅ Explicit
-        lazy="select"
+        foreign_keys="[Node.parent_id]",
     )
-
-    # Child → Parent relationship
-    parent: Mapped["Todo | None"] = relationship(
-        "Todo",
-        back_populates="subtasks",
-        remote_side="[Todo.id]",  # ✅ Explicit
-        lazy="select"
+    parent: Mapped["Node | None"] = relationship(
+        "Node",
+        back_populates="children",
+        remote_side="[Node.id]",
     )
 ```
 
-**Why**: SQLAlchemy can't automatically determine which side is the parent and which is the child in self-referential relationships. Explicit configuration removes ambiguity.
+Without those hints, SQLAlchemy cannot infer which side of the relationship is
+the parent.
 
----
+## Enum Values
 
-## Enum Type Declarations
-
-**Problem**: Enum values stored as names (`"PENDING"`) instead of values (`"pending"`) in database.
-
-**Solution**: Use `values_callable`:
+If your Python enum inherits from `str`, store enum values rather than enum names:
 
 ```python
 from enum import Enum
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-class TodoStatus(str, Enum):
+
+class Status(str, Enum):
     PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
+    DONE = "done"
 
-class Todo(Base):
-    __tablename__ = "todos"
 
-    # Correct enum declaration
-    status: Mapped[TodoStatus] = mapped_column(
-        SQLEnum(TodoStatus, values_callable=lambda x: [e.value for e in x]),  # ✅ Store values
-        nullable=False,
-        default=TodoStatus.PENDING
-    )
+status: Mapped[Status] = mapped_column(
+    SQLEnum(Status, values_callable=lambda values: [item.value for item in values]),
+    nullable=False,
+    default=Status.PENDING,
+)
 ```
 
-**Why**: Without `values_callable`, SQLAlchemy stores enum names (`PENDING`) instead of their values (`pending`). This causes mismatches between your Python code and database values.
-
-**Alternative**: If you want to store names instead of values, use `Enum(TodoStatus, native_enum=False)` but this is less common.
-
----
+Without `values_callable`, SQLAlchemy stores names such as `PENDING`, which can
+surprise application code expecting `pending`.
 
 ## Async Relationship Loading
 
-**Problem**: Accessing relationships in async code causes "greenlet" errors.
-
-**Solution**: Use eager loading or `selectinload`:
+Do not trigger lazy relationship loading in async SQLAlchemy. Eager load the
+relationship in the original query.
 
 ```python
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-# Wrong - lazy loading in async context
-async def get_todo_with_subtasks(session, todo_id):
-    result = await session.execute(select(Todo).where(Todo.id == todo_id))
-    todo = result.scalar_one()
-    subtasks = todo.subtasks  # ❌ Causes greenlet error
 
-# Correct - eager loading
-async def get_todo_with_subtasks(session, todo_id):
-    result = await session.execute(
-        select(Todo)
-        .where(Todo.id == todo_id)
-        .options(selectinload(Todo.subtasks))  # ✅ Eager load
-    )
-    todo = result.scalar_one()
-    subtasks = todo.subtasks  # Works!
+result = await session.execute(
+    select(Node)
+    .where(Node.id == node_id)
+    .options(selectinload(Node.children))
+)
+node = result.scalar_one()
+children = node.children
 ```
 
-**Why**: SQLAlchemy's async mode doesn't support lazy loading. Relationships must be explicitly loaded in the same query.
+Lazy loading outside the query can raise greenlet errors in async code.
 
----
+## Mixins
 
-## Timestamp Mixins
+Use the existing mixins in `db/base.py`:
 
-**Pattern**: Create a mixin for automatic timestamps:
+- `TimestampMixin`
+- `UUIDMixin`
 
-```python
-from datetime import datetime
-from sqlalchemy import func
-from sqlalchemy.orm import Mapped, mapped_column
+Do not redefine timestamp or UUID columns in each model unless the app has a
+specific schema requirement that differs from the template.
 
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(),
-        nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False
-    )
+## Test Engines
 
-class Todo(Base, TimestampMixin):
-    __tablename__ = "todos"
-    # Automatically gets created_at and updated_at
-```
+Use the fixtures in `tests/conftest.py`. They resolve the test database through
+`Settings.database_url_for("test")` and use `NullPool` to avoid shared connection
+state between tests.
 
-**Why**: DRY principle - define once, use everywhere.
-
----
-
-## UUID Primary Keys
-
-**Pattern**: Use UUIDs for distributed systems:
-
-```python
-import uuid
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
-
-class UUIDMixin:
-    id: Mapped[str] = mapped_column(
-        String(36),
-        primary_key=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-class Todo(Base, UUIDMixin):
-    __tablename__ = "todos"
-    # Automatically gets UUID primary key
-```
-
-**Why**: UUIDs prevent ID conflicts in distributed systems and allow client-side ID generation.
-
----
-
-## Connection Pooling in Tests
-
-**Problem**: Tests fail with "operation in progress" errors.
-
-**Solution**: Use `NullPool` in test fixtures:
-
-```python
-from sqlalchemy import NullPool
-from sqlalchemy.ext.asyncio import create_async_engine
-
-@pytest.fixture
-def test_engine():
-    engine = create_async_engine(
-        "postgresql+asyncpg://localhost:5432/cairn_test",
-        poolclass=NullPool  # ✅ No pooling in tests
-    )
-    yield engine
-    engine.sync_engine.dispose()
-```
-
-**Why**: Connection pooling can cause conflicts when multiple test fixtures create separate engines. `NullPool` creates a fresh connection for each query.
-
----
+Do not hard-code test database URLs in individual test modules.
 
 ## Further Reading
 

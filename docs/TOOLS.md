@@ -1,643 +1,125 @@
 # Tool Development Guide
 
-Tools are the building blocks of LangGraph agents in Cairn. This guide covers how to create, register, and test tools.
+Tools are LangChain callables that graph builders can load by name. Cairn keeps
+tool discovery simple: public modules in `src/tools/` are imported when
+`src.tools` is imported, and `@register_tool(...)` adds factories to the registry.
 
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Tool Registration](#tool-registration)
-- [Tool Context](#tool-context)
-- [Database Access in Tools](#database-access-in-tools)
-- [Error Handling](#error-handling)
-- [Testing Tools](#testing-tools)
-- [Best Practices](#best-practices)
-
----
-
-## Quick Start
-
-Create a new tool in 3 steps:
-
-1. **Create file**: `src/tools/my_tool.py`
-2. **Register tool**: Use `@register_tool` decorator
-3. **Done**: Auto-imported automatically!
+## Create A Tool
 
 ```python
-# src/tools/my_tool.py
-from langchain_core.tools import tool
+# src/tools/lookup_record.py
+from langchain_core.tools import StructuredTool
+
 from src.tools import register_tool
 from src.tools.context import ToolContext
 
 
-@register_tool("get_user")
-def create_get_user_tool(context: ToolContext):
-    """Create a tool that fetches user information."""
+@register_tool("lookup_record")
+def create_lookup_record_tool(context: ToolContext):
+    async def lookup_record(record_id: str) -> dict:
+        """Look up a record by ID."""
+        return {"id": record_id}
 
-    @tool
-    def get_user(user_id: str) -> dict:
-        """Get user by ID.
-
-        Args:
-            user_id: The user ID to fetch
-
-        Returns:
-            User information dictionary
-        """
-        # Tool implementation here
-        return {"id": user_id, "name": "John Doe"}
-
-    return get_user
+    return StructuredTool.from_function(
+        coroutine=lookup_record,
+        name="lookup_record",
+        description="Look up a record by ID.",
+    )
 ```
 
-That's it! The tool is automatically registered and available for use in graphs.
+Rules:
 
----
-
-## Tool Registration
-
-### Auto-Import Mechanism
-
-Cairn automatically imports all tool modules when `src.tools` is loaded. This triggers `@register_tool` decorators without manual imports.
-
-**How it works**:
-```python
-# In src/tools/__init__.py
-def _auto_import_tools():
-    """Auto-import all tool modules to trigger @register_tool decorators."""
-    tools_dir = Path(__file__).parent
-    for _, module_name, _ in pkgutil.iter_modules([str(tools_dir)]):
-        if module_name.startswith('_') or module_name == 'context':
-            continue
-        importlib.import_module(f'src.tools.{module_name}')
-```
-
-**What gets imported**:
-- ✅ `src/tools/my_tool.py` → Imported
-- ✅ `src/tools/nested/tool.py` → Imported
-- ❌ `src/tools/_private.py` → Skipped (starts with `_`)
-- ❌ `src/tools/context.py` → Skipped (reserved)
-
-### Registration Pattern
-
-```python
-from src.tools import register_tool
-from src.tools.context import ToolContext
-
-@register_tool("tool_name")
-def create_tool(context: ToolContext):
-    """Factory function that creates the tool."""
-    # Access context
-    config = context.config
-    settings = context.settings
-
-    # Define the actual tool
-    @tool
-    def tool_name(arg: str) -> str:
-        """Tool description for LLM."""
-        return f"Result: {arg}"
-
-    return tool_name
-```
-
-**Key points**:
-- Factory function receives `ToolContext`
-- Returns a LangChain `@tool` decorated function
-- Tool name in decorator must match factory function name convention
-- Factory can return `None` to disable tool conditionally
-
-### Conditional Tool Registration
-
-```python
-@register_tool("premium_feature")
-def create_premium_tool(context: ToolContext):
-    """Only available for premium users."""
-    if not context.config.get("enable_premium_features"):
-        return None  # Tool disabled
-
-    @tool
-    def premium_feature() -> str:
-        """Premium feature."""
-        return "Premium result"
-
-    return premium_feature
-```
-
----
+- Keep examples and scratch modules out of `src/tools/`; public modules there are
+  production auto-discovered.
+- Prefix private helper modules with `_`.
+- Use factory names that make the registered tool obvious.
+- Return `None` only when a tool is intentionally disabled for the supplied
+  `ToolContext`.
 
 ## Tool Context
 
-`ToolContext` provides metadata about the graph invoking the tool.
+`ToolContext` carries graph metadata and optional scope. The field definitions live
+in [src/tools/context.py](../src/tools/context.py).
 
-### Available Fields
-
-```python
-class ToolContext(BaseModel):
-    graph_name: str = ""                              # Name of the invoking graph
-    tools: list[str] = Field(default_factory=list)    # Tool names loaded for this graph
-    enabled_sources: list[str] = Field(default_factory=list)  # Data sources enabled
-    source_limits: dict[str, int] = Field(default_factory=dict)  # Per-source limits
-    scope: dict | None = None                         # Optional scope/permissions
-```
-
-### Usage Example
-
-```python
-from src.tools import register_tool
-from src.tools.context import ToolContext
-
-@register_tool("smart_search")
-def create_search_tool(context: ToolContext):
-    """Create search tool using context metadata."""
-
-    # Access graph name for logging/metrics
-    graph = context.graph_name
-
-    # Check enabled sources
-    sources = context.enabled_sources
-
-    @tool
-    def smart_search(query: str) -> list[dict]:
-        """Search with smart ranking."""
-        return search_sources(query, sources=sources)
-
-    return smart_search
-```
-
-### Creating Context
+Typical graph usage:
 
 ```python
 from config.loader import load_graph_config
+from src.tools import load_tools
 from src.tools.context import ToolContext
 
-# Create from graph config (typical usage)
-config = load_graph_config("my_graph")
+config = load_graph_config("workflow")
 context = ToolContext.from_graph_config(config)
+tools = load_tools(config.tools, context)
+```
 
-# Or create directly with explicit values
-context = ToolContext(
-    graph_name="my_graph",
-    tools=["search", "retrieve"],
-    enabled_sources=["documents", "web"],
-    source_limits={"documents": 5},
+## Async Work
+
+Cairn uses async database sessions and async web runtime. Tools that touch the
+database, cache, memory, or network should expose async coroutines to LangChain
+instead of forcing the event loop from a sync wrapper.
+
+```python
+from langchain_core.tools import StructuredTool
+
+from db.connection import get_session_factory
+
+
+async def lookup_record(record_id: str) -> dict:
+    factory = get_session_factory()
+    async with factory() as session:
+        ...
+
+
+tool = StructuredTool.from_function(
+    coroutine=lookup_record,
+    name="lookup_record",
+    description="Look up a record by ID.",
 )
 ```
 
----
+Do not call `asyncio.run()` or `loop.run_until_complete()` inside tools that may
+run under FastAPI, Uvicorn, or LangGraph.
 
-## Database Access in Tools
+## Error Shape
 
-Prefer async LangChain tools for database and cache work. Cairn uses async SQLAlchemy,
-so tool factories should expose an async coroutine to LangChain instead of trying to
-drive the event loop from inside a synchronous wrapper.
-
-### Pattern: Async DB Tool
+Tool outputs are read by models and application code. Prefer small structured
+responses over provider-specific exceptions:
 
 ```python
-from langchain_core.tools import StructuredTool
-from src.tools import register_tool
-from db.connection import get_session_factory
-
-@register_tool("get_todo")
-def create_get_todo_tool(context: ToolContext):
-    """Create tool that fetches todo from database."""
-
-    async def get_todo(todo_id: str) -> dict:
-        """Get todo by ID from database.
-
-        Args:
-            todo_id: The todo ID to fetch
-
-        Returns:
-            Todo information dictionary
-        """
-        from sqlalchemy import select
-        from db.models.todo import Todo
-
-        factory = get_session_factory()
-        async with factory() as session:
-            result = await session.execute(
-                select(Todo).where(Todo.id == todo_id)
-            )
-            todo = result.scalar_one_or_none()
-
-            if not todo:
-                return {"error": "Todo not found"}
-
-            return {
-                "id": str(todo.id),
-                "title": todo.title,
-                "status": todo.status.value
-            }
-
-    return StructuredTool.from_function(
-        coroutine=get_todo,
-        name="get_todo",
-        description="Get todo by ID from the database",
-    )
+return {"ok": False, "error": "record_id is required"}
 ```
 
-### Pattern: Database Write Operations
+Raise only for programmer errors or broken assumptions that should stop execution.
+
+## Testing
+
+For registry tests, register a temporary tool name and remove it after the test.
+For behavior tests, call the tool with a deterministic `ToolContext` and fake any
+provider or database dependency at your application boundary.
 
 ```python
-@register_tool("create_todo")
-def create_create_todo_tool(context: ToolContext):
-    """Create tool that adds todo to database."""
-
-    async def create_todo(title: str, description: str = "") -> dict:
-        """Create a new todo.
-
-        Args:
-            title: Todo title
-            description: Optional description
-
-        Returns:
-            Created todo information
-        """
-        from db.models.todo import Todo, TodoStatus
-
-        factory = get_session_factory()
-        async with factory() as session:
-            todo = Todo(
-                title=title,
-                description=description,
-                status=TodoStatus.PENDING
-            )
-            session.add(todo)
-            await session.commit()
-            await session.refresh(todo)
-
-            return {
-                "id": str(todo.id),
-                "title": todo.title,
-                "status": todo.status.value
-            }
-
-    return StructuredTool.from_function(
-        coroutine=create_todo,
-        name="create_todo",
-        description="Create a new todo",
-    )
-```
-
----
-
-## Error Handling
-
-### Pattern: Try-Catch in Tools
-
-```python
-@tool
-def risky_operation(input: str) -> dict:
-    """Operation that might fail."""
-    try:
-        result = do_something(input)
-        return {"success": True, "result": result}
-    except ValueError as e:
-        return {"success": False, "error": str(e)}
-    except Exception as e:
-        return {"success": False, "error": f"Unexpected error: {str(e)}"}
-```
-
-### Pattern: Validation
-
-```python
-@tool
-def validated_tool(user_id: str, amount: float) -> dict:
-    """Tool with input validation."""
-
-    # Validate inputs
-    if not user_id:
-        return {"error": "user_id is required"}
-
-    if amount <= 0:
-        return {"error": "amount must be positive"}
-
-    # Process
-    try:
-        result = process_payment(user_id, amount)
-        return {"success": True, "transaction_id": result}
-    except Exception as e:
-        return {"error": str(e)}
-```
-
-### Pattern: Logging
-
-```python
-import logging
-
-logger = logging.getLogger(__name__)
-
-@register_tool("logged_tool")
-def create_logged_tool(context: ToolContext):
-    """Tool with logging."""
-
-    @tool
-    def logged_tool(input: str) -> dict:
-        """Tool that logs execution."""
-        logger.info(f"Tool called with input: {input}")
-
-        try:
-            result = process(input)
-            logger.info(f"Tool succeeded: {result}")
-            return {"result": result}
-        except Exception as e:
-            logger.error(f"Tool failed: {e}", exc_info=True)
-            return {"error": str(e)}
-
-    return logged_tool
-```
-
----
-
-## Testing Tools
-
-### Unit Test Pattern
-
-```python
-import pytest
-from src.tools import load_tools
+from src.tools import TOOL_FACTORY, load_tools, register_tool
 from src.tools.context import ToolContext
-from config.loader import load_default_config
 
-def test_get_user_tool():
-    # Setup
-    config = load_default_config()
-    context = ToolContext.from_graph_config(config)
 
-    # Load tool
-    tools = load_tools(["get_user"], context)
-    assert len(tools) == 1
+def test_tool_registration():
+    name = "_test_lookup"
+    TOOL_FACTORY.pop(name, None)
 
-    get_user_tool = tools[0]
+    @register_tool(name)
+    def create_tool(context: ToolContext):
+        return "tool"
 
-    # Execute
-    result = get_user_tool.invoke({"user_id": "123"})
-
-    # Assert
-    assert result["id"] == "123"
-    assert "name" in result
+    try:
+        assert load_tools([name], ToolContext()) == ["tool"]
+    finally:
+        TOOL_FACTORY.pop(name, None)
 ```
-
-### Integration Test with Database
-
-```python
-@pytest.mark.asyncio
-async def test_create_todo_tool(test_session, clean_db):
-    from src.tools import load_tools
-    from src.tools.context import ToolContext
-    from config.loader import load_default_config
-    from sqlalchemy import select
-    from db.models.todo import Todo
-
-    # Setup
-    config = load_default_config()
-    context = ToolContext.from_graph_config(config)
-
-    # Load tool
-    tools = load_tools(["create_todo"], context)
-    create_todo = tools[0]
-
-    # Execute
-    result = create_todo.invoke({
-        "title": "Test Todo",
-        "description": "Test description"
-    })
-
-    # Assert result
-    assert result["title"] == "Test Todo"
-    todo_id = result["id"]
-
-    # Verify in database
-    db_result = await test_session.execute(
-        select(Todo).where(Todo.id == todo_id)
-    )
-    todo = db_result.scalar_one()
-    assert todo.title == "Test Todo"
-```
-
-### Mocking Dependencies
-
-```python
-from unittest.mock import patch, AsyncMock
-
-def test_tool_with_mocked_service():
-    from src.tools import load_tools
-    from src.tools.context import ToolContext
-    from config.loader import load_default_config
-
-    # Setup
-    config = load_default_config()
-    context = ToolContext.from_graph_config(config)
-
-    # Mock external service
-    with patch("src.services.external.call_api") as mock_api:
-        mock_api.return_value = {"data": "mocked"}
-
-        # Load and execute tool
-        tools = load_tools(["external_tool"], context)
-        result = tools[0].invoke({"param": "value"})
-
-        # Verify
-        assert result["data"] == "mocked"
-        mock_api.assert_called_once()
-```
-
----
-
-## Best Practices
-
-### ✅ Do
-
-- **Name tools clearly**: Use descriptive names like `get_user`, `create_todo`
-- **Document parameters**: LLM uses docstrings to understand tools
-- **Return structured data**: Use dicts with consistent keys
-- **Handle errors gracefully**: Return error dicts instead of raising
-- **Validate inputs**: Check required fields and types
-- **Log important events**: Help debugging in production
-- **Keep tools focused**: One tool = one action
-- **Use type hints**: Helps LLM understand parameters
-
-### ❌ Don't
-
-- **Don't use complex return types**: Stick to dicts, lists, strings, numbers
-- **Don't raise exceptions**: Return error dicts instead
-- **Don't make tools do multiple things**: Split into separate tools
-- **Don't forget docstrings**: LLM needs them to use tools correctly
-- **Don't use mutable defaults**: `def tool(items: list = [])` is bad
-- **Don't access global state**: Use ToolContext instead
-- **Don't make synchronous blocking calls**: Use async patterns
-
-### Naming Conventions
-
-```python
-# Good
-@register_tool("get_user")
-def create_get_user_tool(context):
-    ...
-
-@register_tool("create_todo")
-def create_create_todo_tool(context):
-    ...
-
-# Bad
-@register_tool("user")  # Too vague
-def make_tool(context):  # Doesn't match tool name
-    ...
-```
-
-### Docstring Format
-
-```python
-@tool
-def example_tool(param1: str, param2: int = 10) -> dict:
-    """Brief description of what the tool does.
-
-    Longer explanation if needed. This helps the LLM understand
-    when and how to use this tool.
-
-    Args:
-        param1: Description of param1
-        param2: Description of param2 (optional)
-
-    Returns:
-        Description of return value structure
-
-    Example:
-        >>> example_tool("value", param2=20)
-        {"result": "success"}
-    """
-    pass
-```
-
----
-
-## Advanced Patterns
-
-### Tool with Cache
-
-```python
-from langchain_core.tools import StructuredTool
-
-@register_tool("cached_lookup")
-def create_cached_tool(context: ToolContext):
-    """Tool that caches results."""
-
-    async def cached_lookup(query: str) -> dict:
-        """Lookup with caching."""
-        from cache.backends import get_cache_backend
-
-        cache = get_cache_backend()
-        cache_key = f"lookup:{query}"
-
-        # Check cache
-        cached = await cache.get(cache_key)
-        if cached:
-            return {"result": cached, "from_cache": True}
-
-        # Compute result
-        result = expensive_operation(query)
-
-        # Cache it
-        await cache.set(cache_key, result, ttl=3600)
-
-        return {"result": result, "from_cache": False}
-
-    return StructuredTool.from_function(
-        coroutine=cached_lookup,
-        name="cached_lookup",
-        description="Lookup data with cache support",
-    )
-```
-
-### Tool with Memory Backend
-
-```python
-from langchain_core.tools import StructuredTool
-
-@register_tool("semantic_search")
-def create_search_tool(context: ToolContext):
-    """Tool that searches vector embeddings."""
-
-    async def semantic_search(query: str, limit: int = 5) -> list[dict]:
-        """Search using semantic similarity."""
-        from memory.backends import get_backend
-        from src.services.embeddings import EmbeddingsService
-
-        # Generate query embedding
-        embeddings = EmbeddingsService()
-        query_embedding = (await embeddings.embed([query]))[0]
-
-        # Search
-        backend = get_backend()
-        results = await backend.search(query_embedding, limit=limit)
-
-        return results
-
-    return StructuredTool.from_function(
-        coroutine=semantic_search,
-        name="semantic_search",
-        description="Search memory using semantic similarity",
-    )
-```
-
----
 
 ## Troubleshooting
 
-### "Unknown tool" error
-
-**Problem**: Tool not registered.
-
-**Solution**: Make sure file is in `src/tools/` and doesn't start with `_`:
-```bash
-# Check auto-import
-ls src/tools/*.py | grep -v __pycache__ | grep -v context.py
-```
-
-### "Event loop already running" error
-
-**Problem**: Calling `asyncio.run()` or `loop.run_until_complete()` from a sync
-tool while FastAPI, uvicorn, or LangGraph already owns the running event loop.
-
-**Solution**: Make the tool async and pass it as the `coroutine` when constructing
-the LangChain tool:
-```python
-from langchain_core.tools import StructuredTool
-
-async def fetch_data(item_id: str) -> dict:
-    return await async_lookup(item_id)
-
-tool = StructuredTool.from_function(
-    coroutine=fetch_data,
-    name="fetch_data",
-    description="Fetch data by ID",
-)
-```
-
-Sync wrappers around async database work are unsupported in a running event loop
-unless your application provides a deliberate bridge at the app boundary.
-
-### Tool returns None
-
-**Problem**: Factory function returns None (tool disabled).
-
-**Solution**: Check conditional logic in factory:
-```python
-@register_tool("my_tool")
-def create_tool(context: ToolContext):
-    if some_condition:
-        return None  # Tool disabled
-    # Make sure this branch returns a tool
-    @tool
-    def my_tool():
-        pass
-    return my_tool
-```
-
----
-
-## Further Reading
-
-- [LangChain Tools Documentation](https://python.langchain.com/docs/modules/agents/tools/)
-- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
-- [Async SQLAlchemy](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
+- Unknown tool: check that the module is public, importable, and decorated.
+- Tool missing from a graph: check `config/graphs/{name}.yaml`.
+- Event loop already running: make the tool async and pass it as `coroutine`.
+- Tool returns `None`: inspect conditional factory logic for the supplied context.
