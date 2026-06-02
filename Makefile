@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-integration test-e2e test-cov lint format format-check check
+.PHONY: test test-unit test-integration test-e2e test-cov lint format format-check lock-check doctor check
 
 test:
 	poetry run pytest tests/ -v
@@ -24,4 +24,10 @@ format:
 format-check:
 	poetry run ruff format --check .
 
-check: lint format-check test
+lock-check:
+	poetry check --lock
+
+doctor:
+	poetry run python -m scripts.doctor
+
+check: lock-check lint format-check test

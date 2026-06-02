@@ -80,3 +80,48 @@ def test_makefile_coverage_target_enforces_threshold():
     makefile = (Path(__file__).parents[1] / "Makefile").read_text()
 
     assert "--cov-fail-under=85" in makefile
+
+
+@pytest.mark.unit
+def test_dependabot_updates_python_dependencies_and_actions():
+    dependabot_path = Path(__file__).parents[1] / ".github" / "dependabot.yml"
+    config = yaml.safe_load(dependabot_path.read_text())
+    ecosystems = {entry["package-ecosystem"] for entry in config["updates"]}
+
+    assert config["version"] == 2
+    assert ecosystems == {"pip", "github-actions"}
+    assert all(entry["schedule"]["interval"] == "weekly" for entry in config["updates"])
+
+
+@pytest.mark.unit
+def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
+    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "security.yml"
+    workflow = yaml.safe_load(workflow_path.read_text())
+    jobs = workflow["jobs"]
+
+    assert {"lockfile-freshness", "dependency-vulnerability-scan", "secret-scan"} <= set(jobs)
+    lock_steps = jobs["lockfile-freshness"]["steps"]
+    vulnerability_steps = jobs["dependency-vulnerability-scan"]["steps"]
+    secret_steps = jobs["secret-scan"]["steps"]
+
+    assert any(step.get("run") == "make lock-check" for step in lock_steps)
+    assert any("pip-audit" in step.get("run", "") for step in vulnerability_steps)
+    assert any(step.get("uses") == "gitleaks/gitleaks-action@v2" for step in secret_steps)
+
+
+@pytest.mark.unit
+def test_pre_commit_checks_for_private_keys():
+    config_path = Path(__file__).parents[1] / ".pre-commit-config.yaml"
+    config = yaml.safe_load(config_path.read_text())
+    hook_ids = {hook["id"] for repo in config["repos"] for hook in repo["hooks"]}
+
+    assert "detect-private-key" in hook_ids
+
+
+@pytest.mark.unit
+def test_makefile_lock_check_uses_poetry_lock_validation():
+    makefile = (Path(__file__).parents[1] / "Makefile").read_text()
+
+    assert "lock-check:" in makefile
+    assert "poetry check --lock" in makefile
+    assert "check: lock-check lint format-check test" in makefile

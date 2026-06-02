@@ -44,6 +44,8 @@ Avoid duplicating these values in docs or app code:
 | RBAC policy rules | [src/policies/base.py](src/policies/base.py), [src/policies/roles.py](src/policies/roles.py) |
 | FastAPI policy dependencies | [src/policies/dependencies.py](src/policies/dependencies.py) |
 | Test commands and markers | [Makefile](Makefile), [pyproject.toml](pyproject.toml) |
+| Bootstrap checks | [scripts/doctor.py](scripts/doctor.py), [Makefile](Makefile) |
+| Security automation | [.github/dependabot.yml](.github/dependabot.yml), [.github/workflows/security.yml](.github/workflows/security.yml) |
 
 ## Commands
 
@@ -55,6 +57,8 @@ make test-cov
 make lint
 make format
 make format-check
+make lock-check
+make doctor
 make check
 ```
 
@@ -94,6 +98,8 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 - [Backends](docs/BACKENDS.md): memory, cache, and storage backend switching.
 - [Graphs](docs/GRAPHS.md): graph builder conventions and config flow.
 - [Deployment](docs/DEPLOYMENT.md): environment, migration, and runtime checklist.
+- [Doctor Command](docs/DOCTOR.md): bootstrap checks for local and provider setup.
+- [Security Automation](docs/SECURITY_AUTOMATION.md): dependency updates, audit scans, and secret scanning.
 - [Database Patterns](db/PATTERNS.md): SQLAlchemy pitfalls worth keeping explicit.
 
 Prefer updating the source-of-truth file over repeating details in documentation.
