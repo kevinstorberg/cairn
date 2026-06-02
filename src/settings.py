@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_NAME: str = "cairn"
     APP_PORT: int = 8000
+    DEBUG_ERRORS: bool = False
 
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432

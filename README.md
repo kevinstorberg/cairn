@@ -43,6 +43,7 @@ Avoid duplicating these values in docs or app code:
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
 | RBAC policy rules | [src/policies/base.py](src/policies/base.py), [src/policies/roles.py](src/policies/roles.py) |
 | FastAPI policy dependencies | [src/policies/dependencies.py](src/policies/dependencies.py) |
+| API error envelope and request IDs | [src/api/errors.py](src/api/errors.py), [docs/API_ERRORS.md](docs/API_ERRORS.md) |
 | Test commands and markers | [Makefile](Makefile), [pyproject.toml](pyproject.toml) |
 | Bootstrap checks | [scripts/doctor.py](scripts/doctor.py), [Makefile](Makefile) |
 | Security automation | [.github/dependabot.yml](.github/dependabot.yml), [.github/workflows/security.yml](.github/workflows/security.yml) |
@@ -100,6 +101,7 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 - [Deployment](docs/DEPLOYMENT.md): environment, migration, and runtime checklist.
 - [Doctor Command](docs/DOCTOR.md): bootstrap checks for local and provider setup.
 - [Security Automation](docs/SECURITY_AUTOMATION.md): dependency updates, audit scans, and secret scanning.
+- [API Errors](docs/API_ERRORS.md): error envelope, request IDs, and debug error disclosure.
 - [Database Patterns](db/PATTERNS.md): SQLAlchemy pitfalls worth keeping explicit.
 
 Prefer updating the source-of-truth file over repeating details in documentation.
