@@ -16,7 +16,7 @@ def create_memory_backend(config: MemoryConfig) -> MemoryBackend:
     if backend_name in ("in_memory", "faiss"):
         from memory.backends.in_memory import InMemoryVectorBackend
 
-        return InMemoryVectorBackend()
+        return InMemoryVectorBackend(dimension=config.embedding_dimension)
     elif backend_name == "pgvector":
         from memory.backends.pgvector import PGVectorBackend
 

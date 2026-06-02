@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = ""
     S3_BUCKET: str = ""
 
+    PINECONE_API_KEY: str = ""
+    PINECONE_INDEX_NAME: str = ""
+    PINECONE_NAMESPACE: str = ""
+
     model_config = {"env_file": [str(_env_default), str(_env_file)], "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property

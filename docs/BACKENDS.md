@@ -62,10 +62,14 @@ Use the group names there instead of copying package lists into docs.
 
 - In-memory memory and cache backends are local-process state. They are good for
   development and tests, not multi-process persistence.
-- Redis cache does not require data migration because cache data is temporary.
+- Redis cache is backed by `REDIS_URL` and does not require data migration
+  because cache data is temporary.
+- pgvector memory uses the app database connection and creates its configured
+  memory table on first use.
+- Pinecone memory requires `PINECONE_API_KEY` and `PINECONE_INDEX_NAME`.
 - Local storage is only safe for single-node deployments. Use an object store for
   multi-node or durable file storage.
-- Stub backends fail clearly until their provider integration is implemented.
+- S3 storage requires `S3_BUCKET` and the optional `aws` dependency group.
 
 ## Testing
 

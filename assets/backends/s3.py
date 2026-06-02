@@ -1,31 +1,35 @@
-"""S3 storage backend skeleton.
-
-EXTENSION POINT: This is scaffolding for the AWS S3 storage backend.
-Install dependencies with `poetry install --with aws`, then implement
-the methods below for cloud object storage.
-
-See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
-"""
+import asyncio
 
 from assets.base import StorageBackend
-from lib.cairn.stubs import stub_method
-
-_STUB_MESSAGE = (
-    "S3Storage is not yet implemented. " "Install deps with `poetry install --with aws` and implement to use."
-)
+from lib.aws.s3 import S3Client
+from src.settings import get_settings
 
 
 class S3Storage(StorageBackend):
-    """Skeleton for S3-based cloud object storage.
+    def __init__(self, *, bucket: str | None = None, client=None):
+        settings = get_settings()
+        bucket_name = bucket or settings.S3_BUCKET
+        if not bucket_name:
+            raise ValueError("S3_BUCKET is required when using S3Storage")
+        if isinstance(client, S3Client):
+            self._client = client
+        else:
+            self._client = S3Client(
+                bucket=bucket_name,
+                region=settings.AWS_REGION,
+                client=client,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            )
 
-    To implement: initialize a boto3 S3 client using AWS credentials
-    from settings, and implement upload/download/delete/exists.
-    """
+    async def upload(self, key: str, content: bytes, content_type: str = "") -> str:
+        return await asyncio.to_thread(self._client.upload, key, content, content_type)
 
-    def __init__(self):
-        pass
+    async def download(self, key: str) -> bytes:
+        return await asyncio.to_thread(self._client.download, key)
 
-    upload = stub_method(_STUB_MESSAGE)
-    download = stub_method(_STUB_MESSAGE)
-    delete = stub_method(_STUB_MESSAGE)
-    exists = stub_method(_STUB_MESSAGE)
+    async def delete(self, key: str) -> None:
+        await asyncio.to_thread(self._client.delete, key)
+
+    async def exists(self, key: str) -> bool:
+        return await asyncio.to_thread(self._client.exists, key)

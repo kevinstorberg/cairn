@@ -1,27 +1,42 @@
-"""Redis cache backend skeleton.
+from src.settings import get_settings
 
-EXTENSION POINT: This is scaffolding for the Redis cache backend.
-Install dependencies with `poetry install --with redis`, then implement
-the methods below for distributed caching.
 
-See: https://redis-py.readthedocs.io/en/stable/
-"""
-
-from lib.cairn.stubs import stub_method
-
-_STUB_MESSAGE = (
-    "RedisCacheBackend is not yet implemented. " "Install deps with `poetry install --with redis` and implement to use."
-)
+def _ttl_to_milliseconds(ttl: float | None) -> int | None:
+    if ttl is None:
+        return None
+    if ttl <= 0:
+        raise ValueError(f"ttl must be positive, got {ttl}")
+    return max(1, int(ttl * 1000))
 
 
 class RedisCacheBackend:
-    """Skeleton for Redis-based distributed caching.
+    def __init__(self, *, url: str | None = None, client=None) -> None:
+        self._client = client or self._create_client(url or get_settings().REDIS_URL)
 
-    To implement: initialize an async Redis client using the REDIS_URL
-    from settings, and implement get/set/delete/exists with serialization.
-    """
+    def _create_client(self, url: str):
+        try:
+            from redis import asyncio as redis
+        except ImportError as e:
+            raise RuntimeError("RedisCacheBackend requires `poetry install --with redis`") from e
+        return redis.from_url(url, decode_responses=True)
 
-    get = stub_method(_STUB_MESSAGE)
-    set = stub_method(_STUB_MESSAGE)
-    delete = stub_method(_STUB_MESSAGE)
-    exists = stub_method(_STUB_MESSAGE)
+    async def get(self, key: str) -> str | None:
+        return await self._client.get(key)
+
+    async def set(self, key: str, value: str, ttl: float | None = None) -> None:
+        px = _ttl_to_milliseconds(ttl)
+        if px is None:
+            await self._client.set(key, value)
+        else:
+            await self._client.set(key, value, px=px)
+
+    async def delete(self, key: str) -> None:
+        await self._client.delete(key)
+
+    async def exists(self, key: str) -> bool:
+        return bool(await self._client.exists(key))
+
+    async def close(self) -> None:
+        close = getattr(self._client, "aclose", None)
+        if close is not None:
+            await close()

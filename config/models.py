@@ -16,6 +16,7 @@ class MemoryConfig(BaseModel):
     backend: str = "in_memory"
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dimension: int = 384
+    pgvector_table: str = "cairn_memory"
 
 
 class CacheConfig(BaseModel):
