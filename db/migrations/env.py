@@ -1,5 +1,3 @@
-import importlib
-import pkgutil
 from logging.config import fileConfig
 from pathlib import Path
 
@@ -7,13 +5,12 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from db.base import Base
+from db.migrations.utils import import_model_modules, sync_database_url
 
 # Auto-import all model modules so Base.metadata is populated for autogenerate
 _models_dir = Path(__file__).resolve().parent.parent / "models"
 if _models_dir.exists():
-    for _, module_name, _ in pkgutil.iter_modules([str(_models_dir)]):
-        if not module_name.startswith("_"):
-            importlib.import_module(f"db.models.{module_name}")
+    import_model_modules(_models_dir)
 
 config = context.config
 
@@ -26,8 +23,7 @@ target_metadata = Base.metadata
 def get_url():
     from src.settings import get_settings
 
-    url = get_settings().database_url
-    return url.replace("+asyncpg", "")
+    return sync_database_url(get_settings().database_url)
 
 
 def run_migrations_offline() -> None:

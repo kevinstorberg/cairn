@@ -34,6 +34,22 @@ class TestGraphFactory:
         graph = build_graph_from_config("nonexistent")
         assert graph is not None
 
+    def test_build_graph_from_config_loads_requested_graph_config(self, monkeypatch):
+        import src.graphs.base as graph_base
+
+        loaded_graphs = []
+
+        def fake_load_graph_config(graph_name: str):
+            loaded_graphs.append(graph_name)
+            return object()
+
+        monkeypatch.setattr(graph_base, "load_graph_config", fake_load_graph_config)
+
+        graph = build_graph_from_config("workflow-a", model_override="model-b")
+
+        assert loaded_graphs == ["workflow-a"]
+        assert hasattr(graph, "invoke")
+
 
 class TestCheckpointing:
     @pytest.mark.asyncio

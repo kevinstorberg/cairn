@@ -13,7 +13,7 @@ test-e2e:
 	poetry run pytest tests/ -v -m e2e
 
 test-cov:
-	poetry run pytest tests/ -v --cov --cov-report=term-missing --cov-report=html
+	poetry run pytest tests/ -v --cov --cov-report=term-missing --cov-report=html --cov-fail-under=85
 
 lint:
 	poetry run ruff check .

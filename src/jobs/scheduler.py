@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -30,15 +31,19 @@ class JobScheduler:
 
     async def start(self) -> None:
         for reg in self._registered_jobs:
-
-            def _make_wrapper(j: BaseJob):
-                def wrapper():
-                    asyncio.ensure_future(self._safe_execute(j))
-
-                return wrapper
-
-            self._scheduler.add_job(_make_wrapper(reg.job), trigger=reg.trigger, id=reg.job.name, **reg.kwargs)
+            self._scheduler.add_job(
+                self._build_job_runner(reg.job),
+                trigger=reg.trigger,
+                id=reg.job.name,
+                **reg.kwargs,
+            )
         self._scheduler.start()
+
+    def _build_job_runner(self, job: BaseJob) -> Callable[[], Awaitable[None]]:
+        async def run_job() -> None:
+            await self._safe_execute(job)
+
+        return run_job
 
     async def _safe_execute(self, job: BaseJob) -> None:
         """Execute a job with error handling and optional timeout."""

@@ -63,3 +63,20 @@ def test_docker_compose_database_port_is_configurable():
     assert app_environment["POSTGRES_HOST"] == "db"
     assert app_environment["POSTGRES_PORT"] == 5432
     assert app_environment["DATABASE_URL_DEVELOPMENT"] == ""
+
+
+@pytest.mark.unit
+def test_ci_enforces_coverage_threshold():
+    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "test.yml"
+    workflow = yaml.safe_load(workflow_path.read_text())
+    steps = workflow["jobs"]["test"]["steps"]
+    test_step = next(step for step in steps if step.get("name") == "Run tests with coverage")
+
+    assert "--cov-fail-under=85" in test_step["run"]
+
+
+@pytest.mark.unit
+def test_makefile_coverage_target_enforces_threshold():
+    makefile = (Path(__file__).parents[1] / "Makefile").read_text()
+
+    assert "--cov-fail-under=85" in makefile

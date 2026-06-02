@@ -58,7 +58,7 @@ jobs:
         env:
           APP_ENV: test
           DATABASE_URL_TEST: postgresql+asyncpg://cairn:cairn@localhost:5432/cairn_test
-        run: poetry run pytest tests/ -v --tb=short --cov --cov-report=term-missing --cov-report=xml
+        run: poetry run pytest tests/ -v --tb=short --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4

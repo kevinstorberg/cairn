@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from src.jobs.base import BaseJob
@@ -10,6 +12,19 @@ class MockJob(BaseJob):
 
     async def execute(self):
         MockJob.call_count += 1
+
+
+class ScheduledJob(BaseJob):
+    name = "scheduled_job"
+    timeout_seconds = 1
+
+    def __init__(self, fired: asyncio.Event):
+        self.fired = fired
+        self.call_count = 0
+
+    async def execute(self):
+        self.call_count += 1
+        self.fired.set()
 
 
 @pytest.mark.unit
@@ -43,3 +58,25 @@ class TestJobScheduler:
         scheduler.register(job1, trigger="interval", seconds=60)
         scheduler.register(job2, trigger="interval", seconds=120)
         assert len(scheduler.registered_jobs) == 2
+
+    @pytest.mark.asyncio
+    async def test_start_runs_registered_interval_job(self):
+        scheduler = JobScheduler()
+        fired = asyncio.Event()
+        job = ScheduledJob(fired)
+
+        scheduler.register(
+            job,
+            trigger="interval",
+            seconds=0.05,
+            max_instances=1,
+            coalesce=True,
+        )
+
+        await scheduler.start()
+        try:
+            await asyncio.wait_for(fired.wait(), timeout=1)
+        finally:
+            await scheduler.shutdown()
+
+        assert job.call_count >= 1

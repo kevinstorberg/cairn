@@ -1,5 +1,6 @@
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -62,3 +63,14 @@ finally:
         tools = load_tools(["enabled_tool_test"], ctx)
         assert len(tools) == 1
         assert tools[0].name == "fake"
+
+    def test_tool_context_from_graph_config_copies_graph_name_and_tools(self):
+        graph_config = SimpleNamespace(name="workflow-a", tools=["tool-a", "tool-b"])
+
+        context = ToolContext.from_graph_config(graph_config)
+
+        assert context.graph_name == "workflow-a"
+        assert context.tools == ["tool-a", "tool-b"]
+        assert context.enabled_sources == []
+        assert context.source_limits == {}
+        assert context.scope is None
