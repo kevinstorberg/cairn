@@ -103,9 +103,12 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
     lock_steps = jobs["lockfile-freshness"]["steps"]
     vulnerability_steps = jobs["dependency-vulnerability-scan"]["steps"]
     secret_steps = jobs["secret-scan"]["steps"]
+    vulnerability_commands = [step.get("run", "") for step in vulnerability_steps]
 
     assert any(step.get("run") == "make lock-check" for step in lock_steps)
-    assert any("pip-audit" in step.get("run", "") for step in vulnerability_steps)
+    assert any("pip install --upgrade" in command and "pip>=26.1" in command for command in vulnerability_commands)
+    assert any(command == "poetry run pip-audit --progress-spinner off" for command in vulnerability_commands)
+    assert all("--ignore-vuln" not in command for command in vulnerability_commands)
     assert any(step.get("uses") == "gitleaks/gitleaks-action@v2" for step in secret_steps)
 
 

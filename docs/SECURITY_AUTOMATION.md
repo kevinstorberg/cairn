@@ -18,3 +18,8 @@ The security workflow runs on pull requests, pushes to `master`, a weekly
 schedule, and manual dispatch. It keeps local development fast by leaving
 network-backed vulnerability and secret scans in CI while keeping the cheap
 lockfile freshness check in `make check`.
+
+The vulnerability job upgrades `pip` inside the Poetry environment before
+installing `pip-audit`. That keeps the scanner's own execution environment out
+of the audit findings, so failures point at application dependencies instead of
+stale bootstrap tooling.
