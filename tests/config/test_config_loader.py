@@ -82,6 +82,15 @@ class TestSettings:
         s = Settings()
         assert s.APP_ENV == "test"
 
+    def test_backend_development_defaults_are_explicit(self):
+        from src.settings import Settings
+
+        s = Settings()
+
+        assert s.POSTGRES_IMAGE == "pgvector/pgvector:pg16"
+        assert s.REDIS_PORT == 6379
+        assert s.DOCUMENTDB_URI == ""
+
     def test_database_url_property_uses_current_app_env(self):
         from src.settings import Settings
 

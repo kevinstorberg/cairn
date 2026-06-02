@@ -195,7 +195,7 @@ class Doctor:
     def check_optional_backend_dependencies(self, *, all_optional: bool) -> list[CheckResult]:
         dependencies = self._selected_optional_dependencies()
         if all_optional:
-            dependencies.update({"boto3", "redis", "pinecone", "pgvector"})
+            dependencies.update({"boto3", "pgvector", "pinecone", "pymongo", "redis"})
 
         if not dependencies:
             return [CheckResult.passed("Optional backend dependencies", "no optional backends selected")]

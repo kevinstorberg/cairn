@@ -63,13 +63,18 @@ Use the group names there instead of copying package lists into docs.
 - In-memory memory and cache backends are local-process state. They are good for
   development and tests, not multi-process persistence.
 - Redis cache is backed by `REDIS_URL` and does not require data migration
-  because cache data is temporary.
+  because cache data is temporary. The local Compose host port is `REDIS_PORT`;
+  app containers use the Redis service URL on the Docker network.
 - pgvector memory uses the app database connection and creates its configured
-  memory table on first use.
+  memory table on first use. Local Compose defaults to a pgvector-enabled
+  Postgres image through `POSTGRES_IMAGE`.
 - Pinecone memory requires `PINECONE_API_KEY` and `PINECONE_INDEX_NAME`.
 - Local storage is only safe for single-node deployments. Use an object store for
   multi-node or durable file storage.
 - S3 storage requires `S3_BUCKET` and the optional `aws` dependency group.
+- DocumentDB utilities use the optional `documentdb` dependency group and
+  `DOCUMENTDB_URI`; inject a client in tests or scripts when you do not want a
+  live provider connection.
 
 ## Testing
 

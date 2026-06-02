@@ -41,13 +41,10 @@ jobs:
         run: pip install poetry
 
       - name: Install dependencies
-        run: poetry install --no-interaction --with aws,redis,pinecone,pgvector
-
-      - name: Install vulnerability scanner
-        run: poetry run python -m pip install --upgrade "pip>=26.1" pip-audit
+        run: poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb
 
       - name: Audit installed Python packages
-        run: poetry run pip-audit --progress-spinner off
+        run: make audit
 
   secret-scan:
     runs-on: ubuntu-latest

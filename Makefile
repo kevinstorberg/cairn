@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-integration test-e2e test-cov lint format format-check lock-check doctor check
+.PHONY: test test-unit test-integration test-e2e test-cov lint format format-check lock-check audit pre-commit security doctor check
 
 test:
 	poetry run pytest tests/ -v
@@ -26,6 +26,14 @@ format-check:
 
 lock-check:
 	poetry check --lock
+
+audit:
+	poetry run pip-audit --progress-spinner off
+
+pre-commit:
+	poetry run pre-commit run --all-files --show-diff-on-failure
+
+security: lock-check audit pre-commit
 
 doctor:
 	poetry run python -m scripts.doctor

@@ -16,15 +16,15 @@ and replace the application-specific parts with your own domain.
 ```bash
 poetry install
 cp .env.default .env.development
-docker compose up -d db
+docker compose up -d db redis
 poetry run alembic upgrade head
 poetry run uvicorn src.app:app --reload
 ```
 
-If local port `5432` is busy:
+If local ports are busy:
 
 ```bash
-POSTGRES_PORT=55432 docker compose up -d db
+POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d db redis
 ```
 
 ## Source Of Truth
@@ -46,7 +46,7 @@ Avoid duplicating these values in docs or app code:
 | API error envelope and request IDs | [src/api/errors.py](src/api/errors.py), [docs/API_ERRORS.md](docs/API_ERRORS.md) |
 | Test commands and markers | [Makefile](Makefile), [pyproject.toml](pyproject.toml) |
 | Bootstrap checks | [scripts/doctor.py](scripts/doctor.py), [Makefile](Makefile) |
-| Security automation | [.github/dependabot.yml](.github/dependabot.yml), [.github/workflows/security.yml](.github/workflows/security.yml) |
+| Security automation | [Makefile](Makefile), [.github/dependabot.yml](.github/dependabot.yml), [.github/workflows/security.yml](.github/workflows/security.yml) |
 
 ## Commands
 
@@ -59,6 +59,9 @@ make lint
 make format
 make format-check
 make lock-check
+make audit
+make pre-commit
+make security
 make doctor
 make check
 ```
