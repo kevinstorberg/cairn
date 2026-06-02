@@ -329,8 +329,12 @@ async def check_migrations_current(repo_root: Path, database_url: str) -> CheckR
     except ImportError as e:
         return CheckResult.failed("Migrations", f"Alembic unavailable: {e}")
 
+    migrations_path = repo_root / "db" / "migrations"
+    if not migrations_path.exists():
+        return CheckResult.failed("Migrations", f"migration script path does not exist: {migrations_path}")
+
     alembic_config = Config(str(repo_root / "alembic.ini"))
-    alembic_config.set_main_option("script_location", str(repo_root / "db" / "migrations"))
+    alembic_config.set_main_option("script_location", str(migrations_path))
     script = ScriptDirectory.from_config(alembic_config)
     heads = set(script.get_heads())
 
