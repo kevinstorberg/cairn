@@ -1,7 +1,9 @@
 # Backend Switching Guide
 
 Cairn supports multiple backends for memory, cache, and storage. Switch between them
-by changing `config/default.yaml`—no code changes required.
+by changing `config/default.yaml`—no code changes required. For normal app startup,
+use `get_backend()`, `get_cache_backend()`, and `get_storage_backend()`. For tests or
+custom app factories, use the explicit `create_*_backend(config)` helpers.
 
 ```yaml
 # config/default.yaml
@@ -57,6 +59,14 @@ from memory.backends import get_backend
 backend = get_backend()  # Returns InMemoryVectorBackend
 await backend.store("id1", "text", {"key": "value"}, embedding)
 results = await backend.search(query_embedding, limit=5)
+```
+
+For explicit wiring:
+```python
+from config.models import MemoryConfig
+from memory.backends import create_memory_backend
+
+backend = create_memory_backend(MemoryConfig(backend="in_memory"))
 ```
 
 ---
@@ -173,6 +183,14 @@ value = await cache.get("key")
 await cache.delete("key")
 ```
 
+For explicit wiring:
+```python
+from cache.backends import create_cache_backend
+from config.models import CacheConfig
+
+cache = create_cache_backend(CacheConfig(backend="memory"))
+```
+
 ---
 
 ### Redis (Production)
@@ -254,6 +272,14 @@ storage = get_storage_backend()  # Returns LocalStorageBackend
 await storage.upload("todos/123/file.pdf", file_bytes, "application/pdf")
 content = await storage.download("todos/123/file.pdf")
 await storage.delete("todos/123/file.pdf")
+```
+
+For explicit wiring:
+```python
+from assets.backends import create_storage_backend
+from config.models import StorageConfig
+
+storage = create_storage_backend(StorageConfig(backend="local", local_path="./storage"))
 ```
 
 ---

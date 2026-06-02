@@ -2,7 +2,8 @@ import pytest
 from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
 
-from src.policies.base import Permission, has_permission, require_permission, require_state_permission
+from src.policies.base import Permission, has_permission
+from src.policies.dependencies import require_permission, require_state_permission
 from src.policies.roles import ROLE_PERMISSIONS, Role
 from src.security.auth import create_token
 

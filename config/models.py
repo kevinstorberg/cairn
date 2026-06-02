@@ -42,6 +42,7 @@ class DefaultConfig(BaseModel):
 
 
 class GraphConfig(DefaultConfig):
+    name: str = "default"
     tools: list[str] = Field(default_factory=list)
     validation: dict = Field(default_factory=dict)
     checkpointing: bool = False

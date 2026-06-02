@@ -1,4 +1,4 @@
-from typing import Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langgraph.graph import add_messages
 
@@ -12,7 +12,7 @@ def add_messages_reducer(existing: list, new: list) -> list:
     return existing + new
 
 
-class BaseState(TypedDict):
+class BaseState(TypedDict, total=False):
     """Base state for all LangGraph graphs.
 
     Uses LangGraph's built-in add_messages reducer to properly
@@ -20,3 +20,4 @@ class BaseState(TypedDict):
     """
 
     messages: Annotated[list, add_messages]
+    graph_config: dict[str, Any]

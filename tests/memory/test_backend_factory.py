@@ -1,8 +1,8 @@
-from types import SimpleNamespace
-
 import pytest
 
 import memory.backends as memory_backends
+from config.models import DefaultConfig, MemoryConfig
+from memory.backends import create_memory_backend
 from memory.backends.in_memory import InMemoryVectorBackend
 from memory.backends.pgvector import PGVectorBackend
 from memory.backends.pinecone import PineconeBackend
@@ -15,21 +15,24 @@ def reset_memory_backend_factory():
     memory_backends.reset_backend()
 
 
-def _config_for_memory(backend: str):
-    return SimpleNamespace(memory=SimpleNamespace(backend=backend))
-
-
 @pytest.mark.parametrize("backend_name", ["in_memory", "faiss"])
-def test_get_backend_returns_in_memory_backend(monkeypatch, backend_name):
-    monkeypatch.setattr(memory_backends, "load_default_config", lambda: _config_for_memory(backend_name))
-
-    backend = memory_backends.get_backend()
+def test_create_memory_backend_returns_in_memory_backend(backend_name):
+    backend = create_memory_backend(MemoryConfig(backend=backend_name))
 
     assert isinstance(backend, InMemoryVectorBackend)
 
 
+def test_get_backend_returns_in_memory_backend(monkeypatch):
+    config = DefaultConfig(memory=MemoryConfig(backend="in_memory"))
+    monkeypatch.setattr(memory_backends, "load_default_config", lambda: config)
+
+    backend = memory_backends.get_backend()
+    assert isinstance(backend, InMemoryVectorBackend)
+
+
 def test_get_backend_returns_pgvector_stub(monkeypatch):
-    monkeypatch.setattr(memory_backends, "load_default_config", lambda: _config_for_memory("pgvector"))
+    config = DefaultConfig(memory=MemoryConfig(backend="pgvector"))
+    monkeypatch.setattr(memory_backends, "load_default_config", lambda: config)
 
     backend = memory_backends.get_backend()
 
@@ -37,18 +40,17 @@ def test_get_backend_returns_pgvector_stub(monkeypatch):
 
 
 def test_get_backend_returns_pinecone_stub(monkeypatch):
-    monkeypatch.setattr(memory_backends, "load_default_config", lambda: _config_for_memory("pinecone"))
+    config = DefaultConfig(memory=MemoryConfig(backend="pinecone"))
+    monkeypatch.setattr(memory_backends, "load_default_config", lambda: config)
 
     backend = memory_backends.get_backend()
 
     assert isinstance(backend, PineconeBackend)
 
 
-def test_get_backend_rejects_unknown_backend(monkeypatch):
-    monkeypatch.setattr(memory_backends, "load_default_config", lambda: _config_for_memory("unknown"))
-
+def test_create_memory_backend_rejects_unknown_backend():
     with pytest.raises(ValueError, match="Unknown memory backend"):
-        memory_backends.get_backend()
+        create_memory_backend(MemoryConfig(backend="unknown"))
 
 
 def test_pgvector_stub_methods_fail_clearly():

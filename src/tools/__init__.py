@@ -1,6 +1,7 @@
 import importlib
 import logging
 import pkgutil
+from pathlib import Path
 from typing import Any, Callable
 
 from lib.cairn.paths import get_module_dir
@@ -28,16 +29,19 @@ def register_tool(name: str):
     return decorator
 
 
-def _auto_import_tools():
-    """Auto-import all tool modules to trigger @register_tool decorators."""
-    tools_dir = get_module_dir(__file__)
+def _should_auto_import(module_name: str) -> bool:
+    return not module_name.startswith("_") and module_name != "context"
 
-    for _, module_name, _ in pkgutil.iter_modules([str(tools_dir)]):
-        # Skip private/special modules
-        if module_name.startswith("_") or module_name == "context":
+
+def _auto_import_tools(package_name: str = __name__, tools_dir: Path | None = None) -> None:
+    """Auto-import all tool modules to trigger @register_tool decorators."""
+    resolved_tools_dir = tools_dir or get_module_dir(__file__)
+
+    for _, module_name, _ in pkgutil.iter_modules([str(resolved_tools_dir)]):
+        if not _should_auto_import(module_name):
             continue
         try:
-            importlib.import_module(f"src.tools.{module_name}")
+            importlib.import_module(f"{package_name}.{module_name}")
             logger.debug(f"Auto-imported tool module: {module_name}")
         except ImportError as e:
             logger.warning(f"Failed to import tool module {module_name}: {e}")

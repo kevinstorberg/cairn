@@ -31,6 +31,7 @@ def load_graph_config(graph_name: str) -> GraphConfig:
 
     if not path.exists():
         merged = default.model_dump()
+        merged["name"] = graph_name
         return GraphConfig(**merged)
 
     with open(path) as f:
@@ -38,4 +39,5 @@ def load_graph_config(graph_name: str) -> GraphConfig:
 
     merged = default.model_dump()
     _deep_merge(merged, graph_data)
+    merged["name"] = graph_name
     return GraphConfig(**merged)

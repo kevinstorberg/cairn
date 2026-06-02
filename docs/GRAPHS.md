@@ -5,6 +5,7 @@ LangGraph agents are the core of Cairn applications. This guide covers how to cr
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [Built-In Config Smoke Graph](#built-in-config-smoke-graph)
 - [Graph Configuration](#graph-configuration)
 - [Building Graphs](#building-graphs)
 - [State Management](#state-management)
@@ -71,6 +72,17 @@ async def run(request: MyRequest):
     result = await graph.ainvoke({"messages": [HumanMessage(content=request.input)]})
     return {"result": result["result"]}
 ```
+
+---
+
+## Built-In Config Smoke Graph
+
+`build_graph_from_config(name)` intentionally builds a deterministic scaffold graph.
+It loads `config/default.yaml` plus `config/graphs/{name}.yaml`, applies
+`model_override` when provided, and writes the resolved summary to
+`state["graph_config"]`. Use it to verify graph configuration loads correctly in a
+fresh clone. For real agent behavior, create an app-specific builder like the
+Quick Start example above.
 
 ---
 

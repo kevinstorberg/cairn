@@ -497,13 +497,13 @@ reset_settings()  # Clear cache
 settings = get_settings()  # Fresh settings
 ```
 
-### Memory backend not persisting
+### Memory backend persists between tests
 
-**Problem**: `get_backend()` returns new instance each time.
+**Problem**: `get_backend()` returns a singleton, matching application runtime behavior.
 
-**Solution**: Already fixed in template! But if you need to reset:
+**Solution**: Reset the memory backend between tests that depend on empty memory state:
 ```python
-from memory.backends import reset_backend
+from memory.backends import get_backend, reset_backend
 
 reset_backend()  # Clear singleton
 backend = get_backend()  # Fresh instance

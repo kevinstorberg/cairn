@@ -3,6 +3,7 @@ from starlette.testclient import TestClient
 
 from src.app import create_app
 from src.websockets.manager import ConnectionManager
+from src.websockets.protocol import WebSocketMessageHandler
 
 
 class FakeWebSocket:
@@ -60,6 +61,21 @@ class TestConnectionManager:
         manager.disconnect(websocket, "room-a")
 
         assert manager.active_connections == {}
+
+
+class TestWebSocketMessageHandler:
+    def test_ping_returns_pong(self):
+        handler = WebSocketMessageHandler()
+
+        assert handler.response_for({"type": "ping"}) == {"type": "pong"}
+
+    def test_unknown_message_echoes_payload(self):
+        handler = WebSocketMessageHandler()
+
+        assert handler.response_for({"type": "message", "content": "hello"}) == {
+            "type": "message",
+            "content": "hello",
+        }
 
 
 class TestWebSocketEndpoint:

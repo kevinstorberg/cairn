@@ -68,6 +68,7 @@ class TestLoadGraphConfig:
         from config.loader import load_graph_config
 
         config = load_graph_config("nonexistent_graph_xyz")
+        assert config.name == "nonexistent_graph_xyz"
         assert config.llm is not None
         assert config.tools == []
 

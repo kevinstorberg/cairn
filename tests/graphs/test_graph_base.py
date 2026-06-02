@@ -1,5 +1,6 @@
 import pytest
 
+from config.models import GraphConfig, LLMConfig
 from src.graphs.base import GraphFactory, build_graph_from_config
 from src.graphs.checkpointing import CheckpointBackend, InMemoryCheckpointer
 from src.models.state import BaseState, add_messages_reducer
@@ -30,9 +31,15 @@ class TestGraphFactory:
         assert graph is not None
         assert hasattr(graph, "invoke")
 
+        result = graph.invoke({"messages": []})
+        assert result["graph_config"]["name"] == "default"
+        assert result["graph_config"]["tools"] == []
+
     def test_build_graph_from_config_unknown_graph_still_works(self):
         graph = build_graph_from_config("nonexistent")
         assert graph is not None
+        result = graph.invoke({"messages": []})
+        assert result["graph_config"]["name"] == "nonexistent"
 
     def test_build_graph_from_config_loads_requested_graph_config(self, monkeypatch):
         import src.graphs.base as graph_base
@@ -41,14 +48,28 @@ class TestGraphFactory:
 
         def fake_load_graph_config(graph_name: str):
             loaded_graphs.append(graph_name)
-            return object()
+            return GraphConfig(
+                name=graph_name,
+                llm=LLMConfig(provider="openai", model="model-a", max_tokens=123),
+                tools=["tool-a"],
+                checkpointing=True,
+                validation={"mode": "strict"},
+            )
 
         monkeypatch.setattr(graph_base, "load_graph_config", fake_load_graph_config)
 
         graph = build_graph_from_config("workflow-a", model_override="model-b")
+        result = graph.invoke({"messages": []})
 
         assert loaded_graphs == ["workflow-a"]
         assert hasattr(graph, "invoke")
+        assert result["graph_config"] == {
+            "name": "workflow-a",
+            "llm": {"provider": "openai", "model": "model-b", "max_tokens": 123},
+            "tools": ["tool-a"],
+            "checkpointing": True,
+            "validation": {"mode": "strict"},
+        }
 
 
 class TestCheckpointing:

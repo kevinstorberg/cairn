@@ -90,7 +90,8 @@ Use signed JWTs as the default authorization boundary:
 ```python
 from fastapi import Depends
 
-from src.policies.base import Permission, require_permission
+from src.policies.base import Permission
+from src.policies.dependencies import require_permission
 
 @router.post("/projects")
 async def create_project(claims: dict = Depends(require_permission(Permission.WRITE))):
@@ -150,10 +151,10 @@ Comprehensive guides for building applications with Cairn:
 ## Key Features
 
 ### Auto-Discovery Tools
-Create a tool in `src/tools/my_tool.py` with `@register_tool` and it's automatically available - no manual imports. See `src/tools/test_auto_import.py` for a complete example.
+Create a tool in `src/tools/my_tool.py` with `@register_tool` and it's automatically available - no manual imports. Keep examples in docs/tests, not in `src/tools/`, because every public module in that package is production-discovered.
 
 ### Singleton Backends
-Memory, cache, and storage backends use singleton pattern - instances persist across requests for performance.
+Memory and cache backend factories use the singleton pattern so instances persist across requests for performance. Storage provides both `get_storage_backend()` for config-driven app startup and `create_storage_backend(config)` for explicit app/test wiring.
 
 ### Config-Driven Graphs
 Define LLM model, tools, and settings in YAML - swap entire configurations without code changes.
