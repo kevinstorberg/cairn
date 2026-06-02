@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.loader import load_default_config
+from src.api.errors import RequestIDMiddleware, register_error_handlers
 from src.routers import health
 from src.routers.health import _VERSION
 from src.websockets.router import router as ws_router
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
     config = load_default_config()
 
     application = FastAPI(title="Cairn", version=_VERSION, lifespan=lifespan)
+    register_error_handlers(application)
 
     application.add_middleware(
         CORSMiddleware,
@@ -52,6 +54,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    application.add_middleware(RequestIDMiddleware)
 
     application.include_router(health.router, tags=["health"])
     application.include_router(ws_router)
