@@ -155,7 +155,12 @@ async def test_doctor_runs_injected_db_and_migration_checks(tmp_path):
 async def test_doctor_reports_invalid_database_settings_without_crashing(tmp_path):
     doctor = Doctor(
         repo_root=tmp_path,
-        settings=Settings(ANTHROPIC_API_KEY="key", DATABASE_URL_DEVELOPMENT="", POSTGRES_DB_DEVELOPMENT=""),
+        settings=Settings(
+            APP_ENV="development",
+            ANTHROPIC_API_KEY="key",
+            DATABASE_URL_DEVELOPMENT="",
+            POSTGRES_DB_DEVELOPMENT="",
+        ),
         config=DefaultConfig(),
         command_runner=passing_command_runner,
         import_checker=lambda module: True,
