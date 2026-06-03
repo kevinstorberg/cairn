@@ -31,15 +31,15 @@ Database URLs:
 
 ```bash
 cp .env.default .env.development
-docker compose up -d db
+docker compose up -d db redis
 poetry run alembic upgrade head
 poetry run uvicorn src.app:app --reload
 ```
 
-If local port `5432` is taken:
+If local ports are taken:
 
 ```bash
-POSTGRES_PORT=55432 docker compose up -d db
+POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d db redis
 ```
 
 The checked-in [docker-compose.yml](../docker-compose.yml) is the local Compose

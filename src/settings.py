@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     DEBUG_ERRORS: bool = False
 
     POSTGRES_HOST: str = "localhost"
+    POSTGRES_IMAGE: str = "pgvector/pgvector:pg16"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "cairn"
     POSTGRES_PASSWORD: str = "cairn"
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
     DATABASE_URL_PRODUCTION: str = ""
 
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_PORT: int = 6379
 
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
@@ -52,6 +54,8 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = ""
     PINECONE_NAMESPACE: str = ""
+
+    DOCUMENTDB_URI: str = ""
 
     model_config = {"env_file": [str(_env_default), str(_env_file)], "env_file_encoding": "utf-8", "extra": "ignore"}
 

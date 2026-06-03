@@ -5,15 +5,27 @@ from lib.aws.s3 import S3Client
 
 
 @pytest.mark.asyncio
-async def test_documentdb_health_reflects_client_state_and_close_clears_client():
-    client = DocumentDBClient("mongodb://example")
+async def test_documentdb_health_pings_injected_client_and_close_closes_driver():
+    backend = FakeDocumentDBClient()
+    client = DocumentDBClient(client=backend)
 
-    assert await client.health_check() is False
-
-    client._client = object()
     assert await client.health_check() is True
 
     await client.close()
+    assert backend.closed is True
+    assert await client.health_check() is False
+    await client.close()
+
+
+def test_documentdb_requires_connection_string_or_injected_client():
+    with pytest.raises(ValueError, match="connection_string or injected client"):
+        DocumentDBClient()
+
+
+@pytest.mark.asyncio
+async def test_documentdb_health_returns_false_when_ping_fails():
+    client = DocumentDBClient(client=FakeDocumentDBClient(healthy=False))
+
     assert await client.health_check() is False
 
 
@@ -86,3 +98,25 @@ class FakeS3Client:
 
     def delete_object(self, *, Bucket, Key):
         self.objects.pop((Bucket, Key), None)
+
+
+class FakeDocumentDBAdmin:
+    def __init__(self, owner: "FakeDocumentDBClient") -> None:
+        self._owner = owner
+
+    def command(self, command: str):
+        if command != "ping":
+            raise ValueError(f"unsupported command: {command}")
+        if not self._owner.healthy or self._owner.closed:
+            raise RuntimeError("DocumentDB ping failed")
+        return {"ok": 1}
+
+
+class FakeDocumentDBClient:
+    def __init__(self, *, healthy: bool = True) -> None:
+        self.healthy = healthy
+        self.closed = False
+        self.admin = FakeDocumentDBAdmin(self)
+
+    def close(self) -> None:
+        self.closed = True

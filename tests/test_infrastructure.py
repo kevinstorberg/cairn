@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -59,10 +60,23 @@ def test_docker_compose_database_port_is_configurable():
     db_service = compose["services"]["db"]
     app_environment = compose["services"]["app"]["environment"]
 
+    assert db_service["image"] == "${POSTGRES_IMAGE:-pgvector/pgvector:pg16}"
     assert db_service["ports"] == ["${POSTGRES_PORT:-5432}:5432"]
     assert app_environment["POSTGRES_HOST"] == "db"
     assert app_environment["POSTGRES_PORT"] == 5432
     assert app_environment["DATABASE_URL_DEVELOPMENT"] == ""
+
+
+@pytest.mark.unit
+def test_docker_compose_redis_port_is_configurable_and_app_uses_service_url():
+    compose_path = Path(__file__).parents[1] / "docker-compose.yml"
+    compose = yaml.safe_load(compose_path.read_text())
+
+    redis_service = compose["services"]["redis"]
+    app_environment = compose["services"]["app"]["environment"]
+
+    assert redis_service["ports"] == ["${REDIS_PORT:-6379}:6379"]
+    assert app_environment["REDIS_URL"] == "redis://redis:6379/0"
 
 
 @pytest.mark.unit
@@ -106,8 +120,12 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
     vulnerability_commands = [step.get("run", "") for step in vulnerability_steps]
 
     assert any(step.get("run") == "make lock-check" for step in lock_steps)
-    assert any("pip install --upgrade" in command and "pip>=26.1" in command for command in vulnerability_commands)
-    assert any(command == "poetry run pip-audit --progress-spinner off" for command in vulnerability_commands)
+    assert any(
+        "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb" == command
+        for command in vulnerability_commands
+    )
+    assert any(command == "make audit" for command in vulnerability_commands)
+    assert all("pip install --upgrade" not in command for command in vulnerability_commands)
     assert all("--ignore-vuln" not in command for command in vulnerability_commands)
     assert any(step.get("uses") == "gitleaks/gitleaks-action@v2" for step in secret_steps)
 
@@ -122,9 +140,40 @@ def test_pre_commit_checks_for_private_keys():
 
 
 @pytest.mark.unit
+def test_pre_commit_workflow_uses_poetry_managed_tooling():
+    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "pre-commit.yml"
+    workflow = yaml.safe_load(workflow_path.read_text())
+    commands = [step.get("run", "") for step in workflow["jobs"]["pre-commit"]["steps"]]
+
+    assert "poetry install --no-interaction" in commands
+    assert "make pre-commit" in commands
+    assert "pip install pre-commit" not in commands
+
+
+@pytest.mark.unit
 def test_makefile_lock_check_uses_poetry_lock_validation():
     makefile = (Path(__file__).parents[1] / "Makefile").read_text()
 
     assert "lock-check:" in makefile
     assert "poetry check --lock" in makefile
     assert "check: lock-check lint format-check test" in makefile
+
+
+@pytest.mark.unit
+def test_makefile_exposes_local_security_targets():
+    makefile = (Path(__file__).parents[1] / "Makefile").read_text()
+
+    assert "audit:" in makefile
+    assert "poetry run pip-audit --progress-spinner off" in makefile
+    assert "pre-commit:" in makefile
+    assert "poetry run pre-commit run --all-files --show-diff-on-failure" in makefile
+    assert "security: lock-check audit pre-commit" in makefile
+
+
+@pytest.mark.unit
+def test_local_security_tools_are_poetry_dev_dependencies():
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    dev_dependencies = pyproject["tool"]["poetry"]["group"]["dev"]["dependencies"]
+
+    assert "pre-commit" in dev_dependencies
+    assert "pip-audit" in dev_dependencies

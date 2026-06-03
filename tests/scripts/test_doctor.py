@@ -132,6 +132,23 @@ async def test_doctor_fails_selected_optional_backend_dependency_and_credentials
     assert any(result.name == "Pinecone credentials" and result.status == "fail" for result in results)
 
 
+def test_doctor_all_optional_dependencies_include_documentdb_driver(tmp_path):
+    checked_modules = set()
+    doctor = Doctor(
+        repo_root=tmp_path,
+        settings=Settings(ANTHROPIC_API_KEY="key"),
+        config=DefaultConfig(),
+        command_runner=passing_command_runner,
+        import_checker=lambda module: checked_modules.add(module) or True,
+        poetry_locator=poetry_locator,
+    )
+
+    results = doctor.check_optional_backend_dependencies(all_optional=True)
+
+    assert all(result.status == "pass" for result in results)
+    assert {"boto3", "pgvector", "pinecone", "pymongo", "redis"} <= checked_modules
+
+
 @pytest.mark.asyncio
 async def test_doctor_runs_injected_db_and_migration_checks(tmp_path):
     doctor = Doctor(

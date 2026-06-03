@@ -4,8 +4,9 @@ import pytest
 from fastapi import Body, HTTPException
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.api.errors import REQUEST_ID_HEADER, APIException
+from src.api.errors import REQUEST_ID_HEADER, APIException, RequestIDMiddleware
 from src.app import create_app
 from src.settings import reset_settings
 
@@ -159,6 +160,11 @@ async def test_unhandled_exception_hides_details_by_default(client):
         "request_id": "request-500",
     }
     assert "database password leaked" not in response.text
+
+
+@pytest.mark.unit
+def test_request_id_middleware_is_plain_asgi_middleware():
+    assert not issubclass(RequestIDMiddleware, BaseHTTPMiddleware)
 
 
 @pytest.mark.integration
