@@ -9,11 +9,11 @@ class ToolContext(BaseModel):
     scope: dict | None = None
 
     @classmethod
-    def from_graph_config(cls, graph_config) -> "ToolContext":
+    def from_graph_config(cls, graph_config, *, scope: dict | None = None) -> "ToolContext":
         return cls(
             graph_name=getattr(graph_config, "name", ""),
             tools=getattr(graph_config, "tools", []),
             enabled_sources=[],
             source_limits={},
-            scope=None,
+            scope=scope,
         )

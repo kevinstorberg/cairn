@@ -121,7 +121,7 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
 
     assert any(step.get("run") == "make lock-check" for step in lock_steps)
     assert any(
-        "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb" == command
+        "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" == command
         for command in vulnerability_commands
     )
     assert any(command == "make audit" for command in vulnerability_commands)
@@ -177,3 +177,21 @@ def test_local_security_tools_are_poetry_dev_dependencies():
 
     assert "pre-commit" in dev_dependencies
     assert "pip-audit" in dev_dependencies
+
+
+@pytest.mark.unit
+def test_readme_links_repository_service_and_graph_runtime_docs():
+    readme = (Path(__file__).parents[1] / "README.md").read_text()
+
+    assert "docs/REPOSITORIES_SERVICES.md" in readme
+    assert "src/graphs/endpoints.py" in readme
+    assert "build_config_summary_graph()" in readme
+
+
+@pytest.mark.unit
+def test_graph_postgres_checkpointing_is_optional_dependency_group():
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    group = pyproject["tool"]["poetry"]["group"]["graph-postgres"]
+
+    assert group["optional"] is True
+    assert "langgraph-checkpoint-postgres" in group["dependencies"]

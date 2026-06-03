@@ -12,7 +12,7 @@ from memory.backends.in_memory import InMemoryVectorBackend
 from src.app import create_app
 from src.evals.judge import build_criteria, extract_steps
 from src.evals.results import EvalResult
-from src.graphs.base import build_graph_from_config
+from src.graphs.base import build_config_summary_graph
 from src.policies.base import Permission, has_permission
 from src.policies.roles import Role
 from src.security.validation import validate_name, validate_uuid
@@ -43,7 +43,7 @@ class TestE2EFullWorkflow:
         assert has_permission(Role.USER, Permission.READ) is True
 
     def test_graph_builds_and_invokes(self):
-        graph = build_graph_from_config("default")
+        graph = build_config_summary_graph("default")
         result = graph.invoke({"messages": ["hello"]})
         assert "messages" in result
         assert len(result["messages"]) == 1

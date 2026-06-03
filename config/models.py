@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class LLMConfig(BaseModel):
@@ -33,6 +33,16 @@ class SecurityConfig(BaseModel):
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
 
 
+class GraphRuntimeConfig(BaseModel):
+    kind: str = "react"
+    prompt: str | None = None
+    recursion_limit: int = 25
+
+
+class CheckpointConfig(BaseModel):
+    backend: str = "none"
+
+
 class DefaultConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -47,3 +57,11 @@ class GraphConfig(DefaultConfig):
     tools: list[str] = Field(default_factory=list)
     validation: dict = Field(default_factory=dict)
     checkpointing: bool = False
+    runtime: GraphRuntimeConfig = Field(default_factory=GraphRuntimeConfig)
+    checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
+
+    @model_validator(mode="after")
+    def apply_legacy_checkpointing_flag(self) -> "GraphConfig":
+        if self.checkpointing and self.checkpoint.backend == "none":
+            self.checkpoint.backend = "memory"
+        return self
