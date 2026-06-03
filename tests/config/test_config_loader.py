@@ -71,6 +71,16 @@ class TestLoadGraphConfig:
         assert config.name == "nonexistent_graph_xyz"
         assert config.llm is not None
         assert config.tools == []
+        assert config.runtime.kind == "react"
+        assert config.runtime.recursion_limit == 25
+        assert config.checkpoint.backend == "none"
+
+    def test_legacy_checkpointing_true_maps_to_memory_checkpoint_backend(self):
+        from config.models import GraphConfig
+
+        config = GraphConfig(checkpointing=True)
+
+        assert config.checkpoint.backend == "memory"
 
 
 @pytest.mark.unit

@@ -66,11 +66,13 @@ change environment variables or depend on empty backend state:
 ```python
 from cache.backends import reset_cache_backend
 from memory.backends import reset_backend
+from src.graphs.checkpointing import reset_checkpointers
 from src.settings import reset_settings
 
 reset_settings()
 reset_backend()
 reset_cache_backend()
+reset_checkpointers()
 ```
 
 Prefer explicit factories when global config is irrelevant:

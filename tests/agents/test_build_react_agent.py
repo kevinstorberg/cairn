@@ -4,7 +4,7 @@ from types import ModuleType
 import pytest
 
 from src.agents import base
-from src.agents.base import _resolve_create_react_agent, build_react_agent
+from src.agents.base import _resolve_create_react_agent, build_react_agent, create_react_agent_graph
 
 
 @pytest.mark.asyncio
@@ -42,6 +42,27 @@ async def test_build_react_agent_omits_empty_prompt(monkeypatch):
     await build_react_agent("llm", [])
 
     assert calls == [{}]
+
+
+def test_create_react_agent_graph_passes_checkpointer_and_name(monkeypatch):
+    calls = []
+
+    def fake_create_react_agent(llm, tools, **kwargs):
+        calls.append({"llm": llm, "tools": tools, "kwargs": kwargs})
+        return "agent"
+
+    monkeypatch.setattr(base, "_resolve_create_react_agent", lambda: fake_create_react_agent)
+
+    result = create_react_agent_graph("llm", ["tool"], checkpointer="checkpointer", name="workflow")
+
+    assert result == "agent"
+    assert calls == [
+        {
+            "llm": "llm",
+            "tools": ["tool"],
+            "kwargs": {"checkpointer": "checkpointer", "name": "workflow"},
+        }
+    ]
 
 
 def test_resolve_create_react_agent_falls_back_to_concrete_submodule(monkeypatch):

@@ -38,8 +38,10 @@ Avoid duplicating these values in docs or app code:
 | Graph-specific config | `config/graphs/*.yaml`, [config/loader.py](config/loader.py) |
 | Database sessions and engines | [db/connection.py](db/connection.py) |
 | Database model base classes | [db/base.py](db/base.py) |
+| Repositories, services, and unit of work | [db/repository.py](db/repository.py), [db/unit_of_work.py](db/unit_of_work.py), [docs/REPOSITORIES_SERVICES.md](docs/REPOSITORIES_SERVICES.md) |
 | Backend protocols and factories | `memory/`, `cache/`, `assets/` |
 | HTTP routes | [src/routers/](src/routers) |
+| Graph runtime and endpoints | [src/graphs/base.py](src/graphs/base.py), [src/graphs/endpoints.py](src/graphs/endpoints.py), [docs/GRAPHS.md](docs/GRAPHS.md) |
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
 | RBAC policy rules | [src/policies/base.py](src/policies/base.py), [src/policies/roles.py](src/policies/roles.py) |
 | FastAPI policy dependencies | [src/policies/dependencies.py](src/policies/dependencies.py) |
@@ -75,15 +77,17 @@ adding parallel command lists elsewhere.
   route handlers under `src/routers/`.
 - Keep routers thin. Route handlers should validate transport concerns and call
   services, repositories, tools, or graph builders for real work.
-- Use `get_session()` for request-scoped database access.
+- Prefer `get_unit_of_work()` for write workflows and services. Use
+  `get_session()` only when a route intentionally owns raw session access.
 - Use backend protocols plus factories instead of importing concrete backends
   throughout application code.
 - Put public tools in `src/tools/`. Every public module in that package is
   production auto-discovered, so keep examples in docs or tests.
 - Use `require_permission()` from `src.policies.dependencies` for FastAPI routes.
   Keep pure authorization rules in `src.policies`.
-- Keep graph behavior in app-specific graph builder modules. The built-in
-  `build_graph_from_config()` is a deterministic config smoke graph.
+- Use `build_graph_from_config()` or the built-in graph endpoints for
+  config-driven ReAct graphs. Use `build_config_summary_graph()` for
+  credential-free config smoke checks.
 
 ## Configuration
 
@@ -98,6 +102,7 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 ## Documentation
 
 - [Testing](docs/TESTING.md): fixture usage, test boundaries, and state cleanup.
+- [Repositories And Services](docs/REPOSITORIES_SERVICES.md): DB layer, unit-of-work, and application service conventions.
 - [Tools](docs/TOOLS.md): LangChain tool registration and async tool patterns.
 - [Backends](docs/BACKENDS.md): memory, cache, and storage backend switching.
 - [Graphs](docs/GRAPHS.md): graph builder conventions and config flow.
