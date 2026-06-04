@@ -40,6 +40,7 @@ If local ports are taken:
 
 ```bash
 POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d db redis
+APP_PORT=18011 docker compose up app
 ```
 
 The checked-in [docker-compose.yml](../docker-compose.yml) is the local Compose

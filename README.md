@@ -25,6 +25,7 @@ If local ports are busy:
 
 ```bash
 POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d db redis
+APP_PORT=18011 docker compose up app
 ```
 
 ## Source Of Truth
@@ -70,6 +71,9 @@ make check
 
 The Makefile is the command reference. Keep new quality gates there instead of
 adding parallel command lists elsewhere.
+
+Test targets run with `APP_ENV=test` by default so local `.env.development`
+settings do not affect deterministic checks.
 
 ## Conventions
 

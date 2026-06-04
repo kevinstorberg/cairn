@@ -80,6 +80,16 @@ def test_docker_compose_redis_port_is_configurable_and_app_uses_service_url():
 
 
 @pytest.mark.unit
+def test_docker_compose_app_port_is_configurable():
+    compose_path = Path(__file__).parents[1] / "docker-compose.yml"
+    compose = yaml.safe_load(compose_path.read_text())
+
+    app_service = compose["services"]["app"]
+
+    assert app_service["ports"] == ["${APP_PORT:-8000}:8000"]
+
+
+@pytest.mark.unit
 def test_ci_enforces_coverage_threshold():
     workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "test.yml"
     workflow = yaml.safe_load(workflow_path.read_text())
@@ -94,6 +104,7 @@ def test_makefile_coverage_target_enforces_threshold():
     makefile = (Path(__file__).parents[1] / "Makefile").read_text()
 
     assert "--cov-fail-under=85" in makefile
+    assert "$(PYTEST) tests/ -v --cov" in makefile
 
 
 @pytest.mark.unit
@@ -154,6 +165,9 @@ def test_pre_commit_workflow_uses_poetry_managed_tooling():
 def test_makefile_lock_check_uses_poetry_lock_validation():
     makefile = (Path(__file__).parents[1] / "Makefile").read_text()
 
+    assert "TEST_APP_ENV ?= test" in makefile
+    assert "PYTEST = APP_ENV=$(TEST_APP_ENV) poetry run pytest" in makefile
+    assert "$(PYTEST) tests/ -v" in makefile
     assert "lock-check:" in makefile
     assert "poetry check --lock" in makefile
     assert "check: lock-check lint format-check test" in makefile
