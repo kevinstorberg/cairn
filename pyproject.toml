@@ -6,6 +6,9 @@ authors = [{name = "SonderMind Engineering"}]
 requires-python = ">=3.11"
 dynamic = ["dependencies"]
 
+[project.scripts]
+cairn = "scripts.cli:main"
+
 [tool.poetry]
 packages = [
     {include = "src"},

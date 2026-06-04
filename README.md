@@ -44,6 +44,8 @@ Avoid duplicating these values in docs or app code:
 | HTTP routes | [src/routers/](src/routers) |
 | Graph runtime and endpoints | [src/graphs/base.py](src/graphs/base.py), [src/graphs/endpoints.py](src/graphs/endpoints.py), [docs/GRAPHS.md](docs/GRAPHS.md) |
 | Job runtime and scheduling | [src/jobs/](src/jobs), [docs/JOBS.md](docs/JOBS.md) |
+| Admin/debug diagnostics | [src/diagnostics/](src/diagnostics), [scripts/inspect.py](scripts/inspect.py), [docs/ADMIN_DEBUG.md](docs/ADMIN_DEBUG.md) |
+| Resource generation | [lib/cairn/generator/](lib/cairn/generator), [scripts/generate.py](scripts/generate.py), [src/routers/registry.py](src/routers/registry.py), [docs/GENERATOR.md](docs/GENERATOR.md) |
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
 | Production security middleware | [src/security/middleware.py](src/security/middleware.py), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Authorization policies | [src/policies/](src/policies), [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) |
@@ -96,6 +98,8 @@ settings do not affect deterministic checks.
   credential-free config smoke checks.
 - Register app background jobs with `@register_job()` and keep job work inside
   services called through `JobContext`.
+- Register generated or app-owned routers with `register_router()` when you want
+  startup discovery without editing `src/app.py`.
 
 ## Configuration
 
@@ -115,6 +119,8 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 - [Backends](docs/BACKENDS.md): memory, cache, and storage backend switching.
 - [Graphs](docs/GRAPHS.md): graph builder conventions and config flow.
 - [Jobs](docs/JOBS.md): job registration, runtime, retries, locks, status, and endpoints.
+- [Admin Debug](docs/ADMIN_DEBUG.md): optional diagnostics endpoints and local inspection script.
+- [Generator](docs/GENERATOR.md): CRUD resource scaffold command and generated-layer conventions.
 - [Deployment](docs/DEPLOYMENT.md): environment, migration, and runtime checklist.
 - [Doctor Command](docs/DOCTOR.md): bootstrap checks for local and provider setup.
 - [Security Automation](docs/SECURITY_AUTOMATION.md): dependency updates, audit scans, and secret scanning.

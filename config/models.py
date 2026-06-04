@@ -38,6 +38,12 @@ class JobsConfig(BaseModel):
     require_distributed_lock: bool = False
 
 
+class AdminDebugConfig(BaseModel):
+    enabled: bool = False
+    expose_config_values: bool = False
+    require_admin: bool = True
+
+
 class SecurityHeadersConfig(BaseModel):
     enabled: bool = True
     content_type_options: str = "nosniff"
@@ -75,6 +81,7 @@ class DefaultConfig(BaseModel):
     cache: CacheConfig = Field(default_factory=CacheConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     jobs: JobsConfig = Field(default_factory=JobsConfig)
+    admin_debug: AdminDebugConfig = Field(default_factory=AdminDebugConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 

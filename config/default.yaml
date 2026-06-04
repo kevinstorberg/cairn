@@ -28,6 +28,11 @@ jobs:
   lock_backend: memory
   require_distributed_lock: false
 
+admin_debug:
+  enabled: false
+  expose_config_values: false
+  require_admin: true
+
 security:
   cors_origins:
     - "*"

@@ -7,11 +7,13 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from config.loader import load_default_config
 from src.api.errors import RequestIDMiddleware, register_error_handlers
+from src.diagnostics.router import create_diagnostics_router
 from src.graphs.endpoints import create_graph_router
 from src.jobs.router import create_jobs_router
 from src.jobs.runtime import shutdown_job_runtime, start_job_runtime
 from src.routers import health
 from src.routers.health import _VERSION
+from src.routers.registry import include_registered_routers
 from src.security.middleware import RateLimitMiddleware, RequestBodySizeLimitMiddleware, SecurityHeadersMiddleware
 from src.security.production import resolve_trusted_hosts, validate_production_settings
 from src.settings import get_settings
@@ -101,6 +103,9 @@ def create_app() -> FastAPI:
     application.include_router(health.router, tags=["health"])
     application.include_router(create_graph_router())
     application.include_router(create_jobs_router())
+    include_registered_routers(application)
+    if config.admin_debug.enabled:
+        application.include_router(create_diagnostics_router(config=config, settings=settings))
     application.include_router(ws_router)
     return application
 

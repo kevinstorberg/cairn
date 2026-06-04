@@ -223,9 +223,33 @@ def test_readme_links_repository_service_and_graph_runtime_docs():
     assert "docs/REPOSITORIES_SERVICES.md" in readme
     assert "docs/AUTHORIZATION.md" in readme
     assert "docs/JOBS.md" in readme
+    assert "docs/ADMIN_DEBUG.md" in readme
+    assert "docs/GENERATOR.md" in readme
     assert "src/graphs/endpoints.py" in readme
     assert "src/jobs/" in readme
+    assert "src/diagnostics/" in readme
+    assert "lib/cairn/generator" in readme
     assert "build_config_summary_graph()" in readme
+
+
+@pytest.mark.unit
+def test_admin_debug_docs_reference_source_of_truth_modules():
+    docs = (Path(__file__).parents[1] / "docs" / "ADMIN_DEBUG.md").read_text()
+
+    assert "src/diagnostics/" in docs
+    assert "src/diagnostics/router.py" in docs
+    assert "scripts/inspect.py" in docs
+    assert "config/default.yaml" in docs
+
+
+@pytest.mark.unit
+def test_generator_docs_reference_source_of_truth_modules():
+    docs = (Path(__file__).parents[1] / "docs" / "GENERATOR.md").read_text()
+
+    assert "scripts/cli.py" in docs
+    assert "scripts/generate.py" in docs
+    assert "lib/cairn/generator/" in docs
+    assert "src/routers/registry.py" in docs
 
 
 @pytest.mark.unit
