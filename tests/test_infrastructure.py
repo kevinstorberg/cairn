@@ -90,6 +90,29 @@ def test_docker_compose_app_port_is_configurable():
 
 
 @pytest.mark.unit
+def test_dockerfile_defines_production_runtime_contract():
+    dockerfile = (Path(__file__).parents[1] / "Dockerfile").read_text()
+    runtime_stage = dockerfile.split("FROM python:3.11-slim AS runtime", 1)[1]
+
+    assert "FROM python:3.11-slim AS builder" in dockerfile
+    assert "FROM python:3.11-slim AS runtime" in dockerfile
+    assert "COPY --from=builder /opt/venv /opt/venv" in dockerfile
+    assert "USER cairn" in runtime_stage
+    assert "HEALTHCHECK" in runtime_stage
+    assert "/health" in runtime_stage
+    assert '"uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"' in runtime_stage
+    assert "poetry install" not in runtime_stage
+
+
+@pytest.mark.unit
+def test_dockerignore_excludes_local_state_from_production_context():
+    patterns = set((Path(__file__).parents[1] / ".dockerignore").read_text().splitlines())
+
+    assert {".env*", ".git", ".claude", ".pytest_cache", ".ruff_cache", ".coverage", "storage", "tmp"} <= patterns
+    assert "!.env.default" not in patterns
+
+
+@pytest.mark.unit
 def test_ci_enforces_coverage_threshold():
     workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "test.yml"
     workflow = yaml.safe_load(workflow_path.read_text())
@@ -198,8 +221,33 @@ def test_readme_links_repository_service_and_graph_runtime_docs():
     readme = (Path(__file__).parents[1] / "README.md").read_text()
 
     assert "docs/REPOSITORIES_SERVICES.md" in readme
+    assert "docs/AUTHORIZATION.md" in readme
     assert "src/graphs/endpoints.py" in readme
     assert "build_config_summary_graph()" in readme
+
+
+@pytest.mark.unit
+def test_deployment_docs_describe_production_security_controls():
+    deployment = (Path(__file__).parents[1] / "docs" / "DEPLOYMENT.md").read_text()
+
+    assert ".env.default" in deployment
+    assert "src/settings.py" in deployment
+    assert "config/default.yaml" in deployment
+    assert "config/models.py" in deployment
+    assert "request body size limits" in deployment
+    assert "edge or WAF rate limiting" in deployment
+
+
+@pytest.mark.unit
+def test_deployment_docs_distinguish_production_dockerfile_from_local_compose():
+    deployment = (Path(__file__).parents[1] / "docs" / "DEPLOYMENT.md").read_text()
+
+    assert "[Dockerfile](../Dockerfile)" in deployment
+    assert "production image source of" in deployment
+    assert "truth" in deployment
+    assert "[docker-compose.yml](../docker-compose.yml) for local development" in deployment
+    assert "docker build -t cairn-app ." in deployment
+    assert "docker run --rm -p 8000:8000 --env-file <runtime-env-file> cairn-app" in deployment
 
 
 @pytest.mark.unit

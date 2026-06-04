@@ -7,9 +7,9 @@ shipping a new application from the template:
 make doctor
 ```
 
-The command checks Poetry, env files, settings, installed dependencies, selected
-optional backends, selected provider credentials, database connectivity, and
-Alembic migration state.
+The command checks Poetry, env files, settings, production security readiness,
+installed dependencies, selected optional backends, selected provider
+credentials, database connectivity, and Alembic migration state.
 
 Useful variants:
 

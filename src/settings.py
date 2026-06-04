@@ -9,6 +9,7 @@ _repo_root = get_repo_root(__file__)
 _env_default = _repo_root / ".env.default"
 _env_file = _repo_root / f".env.{os.environ.get('APP_ENV', 'development')}"
 _DATABASE_ENVS = {"development", "test", "production"}
+DEFAULT_SECRET_KEY = "change-me-in-production-use-a-long-random-value"
 
 
 class Settings(BaseSettings):
@@ -42,9 +43,11 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
 
-    SECRET_KEY: str = "change-me-in-production-use-a-long-random-value"
+    SECRET_KEY: str = DEFAULT_SECRET_KEY
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 60
+    TRUSTED_HOSTS: str = ""
+    SECURE_HEADERS_HSTS_ENABLED: bool = False
 
     AWS_REGION: str = "us-east-1"
     AWS_ACCESS_KEY_ID: str = ""

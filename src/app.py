@@ -3,12 +3,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from config.loader import load_default_config
 from src.api.errors import RequestIDMiddleware, register_error_handlers
 from src.graphs.endpoints import create_graph_router
 from src.routers import health
 from src.routers.health import _VERSION
+from src.security.middleware import RateLimitMiddleware, RequestBodySizeLimitMiddleware, SecurityHeadersMiddleware
+from src.security.production import resolve_trusted_hosts, validate_production_settings
+from src.settings import get_settings
 from src.websockets.router import router as ws_router
 
 logger = logging.getLogger(__name__)
@@ -46,16 +50,40 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     config = load_default_config()
+    settings = get_settings()
+    production_errors = validate_production_settings(settings, config)
+    if production_errors:
+        joined_errors = "; ".join(production_errors)
+        raise RuntimeError(f"Production security settings are invalid: {joined_errors}")
 
     application = FastAPI(title="Cairn", version=_VERSION, lifespan=lifespan)
     register_error_handlers(application)
 
+    application.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=resolve_trusted_hosts(settings, config.security),
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=config.security.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    application.add_middleware(
+        RequestBodySizeLimitMiddleware,
+        max_body_bytes=config.security.max_request_body_bytes,
+    )
+    if config.security.rate_limit_enabled:
+        application.add_middleware(
+            RateLimitMiddleware,
+            limit=config.security.rate_limit_requests,
+            window_seconds=config.security.rate_limit_window_seconds,
+        )
+    application.add_middleware(
+        SecurityHeadersMiddleware,
+        headers_config=config.security.headers,
+        hsts_enabled=settings.SECURE_HEADERS_HSTS_ENABLED,
     )
     application.add_middleware(RequestIDMiddleware)
 

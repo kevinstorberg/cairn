@@ -17,6 +17,7 @@ from config.loader import load_default_config
 from config.models import DefaultConfig
 from lib.cairn.paths import get_repo_root
 from scripts.base import BaseScript
+from src.security.production import validate_production_settings
 from src.settings import Settings, get_settings
 
 CheckStatus = Literal["pass", "warn", "fail"]
@@ -114,6 +115,7 @@ class Doctor:
             *self.check_poetry(),
             *self.check_env_files(),
             *self.check_settings(),
+            self.check_production_security(),
             *self.check_required_dependencies(),
             *self.check_optional_backend_dependencies(all_optional=all_optional),
             *self.check_provider_credentials(strict=strict, require_credentials=require_credentials),
@@ -187,6 +189,17 @@ class Doctor:
             CheckResult.passed("Settings", f"APP_ENV={self.settings.APP_ENV}"),
             CheckResult.passed("Database URL", database_url),
         ]
+
+    def check_production_security(self) -> CheckResult:
+        errors = validate_production_settings(self.settings, self.config)
+        if errors:
+            return CheckResult.failed("Production security", "; ".join(errors))
+
+        if self.settings.APP_ENV.lower() == "production":
+            return CheckResult.passed("Production security", "production security settings are explicit")
+        return CheckResult.warned(
+            "Production security", f"APP_ENV={self.settings.APP_ENV}; production checks not enforced"
+        )
 
     def check_required_dependencies(self) -> list[CheckResult]:
         required_modules = ["fastapi", "sqlalchemy", "alembic", "pydantic", "langgraph"]
