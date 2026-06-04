@@ -30,4 +30,3 @@ poetry run python -m scripts.inspect backends
 Diagnostics are intentionally read-only. They report configuration snapshots,
 registered services/tools/jobs/routers, Alembic current/head status, and safe
 backend health checks without becoming a second configuration system.
-

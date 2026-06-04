@@ -30,4 +30,3 @@ conflict detection are pure Python modules. It does not add relationships,
 custom indexes, auth scopes, graph nodes, or jobs. Add those by extending the
 generated service/repository/router layers instead of duplicating framework
 plumbing.
-
