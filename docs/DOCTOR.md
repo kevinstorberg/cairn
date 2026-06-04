@@ -8,7 +8,7 @@ make doctor
 ```
 
 The command checks Poetry, env files, settings, production security readiness,
-installed dependencies, selected optional backends, selected provider
+job runtime readiness, installed dependencies, selected optional backends, selected provider
 credentials, database connectivity, and Alembic migration state.
 
 Useful variants:

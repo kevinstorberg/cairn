@@ -20,6 +20,14 @@ storage:
   backend: local
   local_path: ./storage
 
+jobs:
+  enabled: true
+  auto_discover: true
+  scheduler_store: memory
+  status_store: memory
+  lock_backend: memory
+  require_distributed_lock: false
+
 security:
   cors_origins:
     - "*"

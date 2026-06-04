@@ -116,6 +116,7 @@ class Doctor:
             *self.check_env_files(),
             *self.check_settings(),
             self.check_production_security(),
+            self.check_job_runtime(),
             *self.check_required_dependencies(),
             *self.check_optional_backend_dependencies(all_optional=all_optional),
             *self.check_provider_credentials(strict=strict, require_credentials=require_credentials),
@@ -199,6 +200,32 @@ class Doctor:
             return CheckResult.passed("Production security", "production security settings are explicit")
         return CheckResult.warned(
             "Production security", f"APP_ENV={self.settings.APP_ENV}; production checks not enforced"
+        )
+
+    def check_job_runtime(self) -> CheckResult:
+        if not self.config.jobs.enabled:
+            return CheckResult.passed("Job runtime", "disabled")
+
+        distributed_lock = self.config.jobs.lock_backend.lower() in {"postgres", "redis"}
+        if self.config.jobs.require_distributed_lock and not distributed_lock:
+            return CheckResult.failed(
+                "Job runtime",
+                "jobs.require_distributed_lock=true requires jobs.lock_backend=postgres or redis",
+            )
+
+        if self.settings.APP_ENV.lower() == "production" and not distributed_lock:
+            return CheckResult.warned(
+                "Job runtime",
+                f"production jobs use non-distributed lock backend {self.config.jobs.lock_backend!r}",
+            )
+
+        return CheckResult.passed(
+            "Job runtime",
+            (
+                f"scheduler_store={self.config.jobs.scheduler_store}, "
+                f"status_store={self.config.jobs.status_store}, "
+                f"lock_backend={self.config.jobs.lock_backend}"
+            ),
         )
 
     def check_required_dependencies(self) -> list[CheckResult]:
@@ -308,6 +335,8 @@ class Doctor:
     def _selected_optional_dependencies(self) -> set[str]:
         dependencies: set[str] = set()
         if self.config.cache.backend.lower() == "redis":
+            dependencies.add("redis")
+        if self.config.jobs.lock_backend.lower() == "redis":
             dependencies.add("redis")
         if self.config.storage.backend.lower() == "s3":
             dependencies.add("boto3")
