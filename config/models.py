@@ -29,8 +29,24 @@ class StorageConfig(BaseModel):
     local_path: str = "./storage"
 
 
+class SecurityHeadersConfig(BaseModel):
+    enabled: bool = True
+    content_type_options: str = "nosniff"
+    frame_options: str = "DENY"
+    referrer_policy: str = "no-referrer"
+    permissions_policy: str = "geolocation=(), microphone=(), camera=()"
+    content_security_policy: str = ""
+    hsts_max_age_seconds: int = Field(default=31536000, gt=0)
+
+
 class SecurityConfig(BaseModel):
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = Field(default=120, gt=0)
+    rate_limit_window_seconds: int = Field(default=60, gt=0)
+    max_request_body_bytes: int = Field(default=10485760, gt=0)
+    headers: SecurityHeadersConfig = Field(default_factory=SecurityHeadersConfig)
 
 
 class GraphRuntimeConfig(BaseModel):

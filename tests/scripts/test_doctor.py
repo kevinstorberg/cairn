@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from config.models import CacheConfig, DefaultConfig, LLMConfig, MemoryConfig, StorageConfig
+from config.models import CacheConfig, DefaultConfig, LLMConfig, MemoryConfig, SecurityConfig, StorageConfig
 from scripts.doctor import CheckResult, Doctor, DoctorScript, render_results
 from src.settings import Settings
 
@@ -75,6 +75,7 @@ async def test_doctor_skip_db_checks_core_bootstrap_requirements(tmp_path):
     statuses = {(result.name, result.status) for result in results}
     assert ("Poetry CLI", "pass") in statuses
     assert ("Lockfile freshness", "pass") in statuses
+    assert ("Production security", "warn") in statuses
     assert ("Env default", "pass") in statuses
     assert ("Active env file", "pass") in statuses
     assert ("Database", "warn") in statuses
@@ -189,6 +190,52 @@ async def test_doctor_reports_invalid_database_settings_without_crashing(tmp_pat
     assert any(result.name == "Settings" and result.status == "fail" for result in results)
     assert any(result.name == "Database" and result.status == "fail" for result in results)
     assert any(result.name == "Migrations" and result.status == "fail" for result in results)
+
+
+@pytest.mark.asyncio
+async def test_doctor_fails_unsafe_production_security_settings(tmp_path):
+    doctor = Doctor(
+        repo_root=tmp_path,
+        settings=Settings(APP_ENV="production", ANTHROPIC_API_KEY="key"),
+        config=DefaultConfig(),
+        command_runner=passing_command_runner,
+        import_checker=lambda module: True,
+        db_check=passing_db_check,
+        migration_check=passing_migration_check,
+        poetry_locator=poetry_locator,
+    )
+
+    results = await doctor.run()
+
+    assert any(
+        result.name == "Production security"
+        and result.status == "fail"
+        and "SECRET_KEY must be changed from the template default" in result.message
+        for result in results
+    )
+
+
+@pytest.mark.asyncio
+async def test_doctor_passes_explicit_production_security_settings(tmp_path):
+    doctor = Doctor(
+        repo_root=tmp_path,
+        settings=Settings(
+            APP_ENV="production",
+            SECRET_KEY="x" * 32,
+            TRUSTED_HOSTS="api.example.com",
+            ANTHROPIC_API_KEY="key",
+        ),
+        config=DefaultConfig(security=SecurityConfig(cors_origins=["https://api.example.com"])),
+        command_runner=passing_command_runner,
+        import_checker=lambda module: True,
+        db_check=passing_db_check,
+        migration_check=passing_migration_check,
+        poetry_locator=poetry_locator,
+    )
+
+    results = await doctor.run()
+
+    assert CheckResult.passed("Production security", "production security settings are explicit") in results
 
 
 @pytest.mark.asyncio

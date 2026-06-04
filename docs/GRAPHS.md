@@ -22,7 +22,7 @@ checkpoint:
   backend: memory
 ```
 
-`runtime.kind` currently supports `react`. `runtime.prompt` loads
+The built-in runtime kind is `react`. `runtime.prompt` loads
 `config/prompts/{name}.txt`. `checkpoint.backend` supports `none`, `memory`, and
 `postgres`; Postgres checkpointing requires the optional `graph-postgres`
 dependency group.

@@ -44,7 +44,8 @@ Avoid duplicating these values in docs or app code:
 | HTTP routes | [src/routers/](src/routers) |
 | Graph runtime and endpoints | [src/graphs/base.py](src/graphs/base.py), [src/graphs/endpoints.py](src/graphs/endpoints.py), [docs/GRAPHS.md](docs/GRAPHS.md) |
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
-| RBAC policy rules | [src/policies/base.py](src/policies/base.py), [src/policies/roles.py](src/policies/roles.py) |
+| Production security middleware | [src/security/middleware.py](src/security/middleware.py), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Authorization policies | [src/policies/](src/policies), [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) |
 | FastAPI policy dependencies | [src/policies/dependencies.py](src/policies/dependencies.py) |
 | API error envelope and request IDs | [src/api/errors.py](src/api/errors.py), [docs/API_ERRORS.md](docs/API_ERRORS.md) |
 | Test commands and markers | [Makefile](Makefile), [pyproject.toml](pyproject.toml) |
@@ -114,6 +115,7 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 - [Doctor Command](docs/DOCTOR.md): bootstrap checks for local and provider setup.
 - [Security Automation](docs/SECURITY_AUTOMATION.md): dependency updates, audit scans, and secret scanning.
 - [API Errors](docs/API_ERRORS.md): error envelope, request IDs, and debug error disclosure.
+- [Authorization](docs/AUTHORIZATION.md): RBAC, scoped authorization, ownership checks, and audit sinks.
 - [Database Patterns](db/PATTERNS.md): SQLAlchemy pitfalls worth keeping explicit.
 
 Prefer updating the source-of-truth file over repeating details in documentation.

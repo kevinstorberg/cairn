@@ -53,6 +53,11 @@ class TestLoadDefaultConfig:
         assert config.llm.provider is not None
         assert config.llm.model is not None
         assert config.llm.max_tokens > 0
+        assert config.security.trusted_hosts == ["*"]
+        assert config.security.rate_limit_enabled is True
+        assert config.security.rate_limit_requests == 120
+        assert config.security.max_request_body_bytes == 10485760
+        assert config.security.headers.content_type_options == "nosniff"
 
     def test_caching_returns_same_instance(self):
         from config.loader import load_default_config
@@ -103,6 +108,8 @@ class TestSettings:
             "REDIS_URL",
             "REDIS_PORT",
             "DOCUMENTDB_URI",
+            "TRUSTED_HOSTS",
+            "SECURE_HEADERS_HSTS_ENABLED",
         ):
             monkeypatch.delenv(name, raising=False)
 
@@ -115,6 +122,8 @@ class TestSettings:
         assert s.REDIS_URL == "redis://localhost:6379/0"
         assert s.REDIS_PORT == 6379
         assert s.DOCUMENTDB_URI == ""
+        assert s.TRUSTED_HOSTS == ""
+        assert s.SECURE_HEADERS_HSTS_ENABLED is False
 
     def test_database_url_property_uses_current_app_env(self):
         from src.settings import Settings
