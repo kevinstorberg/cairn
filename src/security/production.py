@@ -32,6 +32,9 @@ def validate_production_settings(settings: Settings, config: DefaultConfig) -> l
     if _wildcard_only(config.security.cors_origins):
         errors.append("security.cors_origins must list explicit production origins")
 
+    if config.admin_debug.enabled and config.admin_debug.expose_config_values:
+        errors.append("admin_debug.expose_config_values must be false in production")
+
     return errors
 
 
