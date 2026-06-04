@@ -1,19 +1,22 @@
 .PHONY: test test-unit test-integration test-e2e test-cov lint format format-check lock-check audit pre-commit security doctor check
 
+TEST_APP_ENV ?= test
+PYTEST = APP_ENV=$(TEST_APP_ENV) poetry run pytest
+
 test:
-	poetry run pytest tests/ -v
+	$(PYTEST) tests/ -v
 
 test-unit:
-	poetry run pytest tests/ -v -m unit
+	$(PYTEST) tests/ -v -m unit
 
 test-integration:
-	poetry run pytest tests/ -v -m integration
+	$(PYTEST) tests/ -v -m integration
 
 test-e2e:
-	poetry run pytest tests/ -v -m e2e
+	$(PYTEST) tests/ -v -m e2e
 
 test-cov:
-	poetry run pytest tests/ -v --cov --cov-report=term-missing --cov-report=html --cov-fail-under=85
+	$(PYTEST) tests/ -v --cov --cov-report=term-missing --cov-report=html --cov-fail-under=85
 
 lint:
 	poetry run ruff check .

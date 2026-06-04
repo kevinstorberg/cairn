@@ -17,6 +17,9 @@ make test-cov
 make check
 ```
 
+Makefile test targets set `APP_ENV=test` by default. Keep `.env.development`
+focused on local runtime values; it should not affect deterministic test runs.
+
 ## Fixtures
 
 The fixture source of truth is [tests/conftest.py](../tests/conftest.py). Use it

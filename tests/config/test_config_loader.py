@@ -92,12 +92,27 @@ class TestSettings:
         s = Settings()
         assert s.APP_ENV == "test"
 
-    def test_backend_development_defaults_are_explicit(self):
+    def test_backend_development_defaults_are_explicit(self, monkeypatch):
         from src.settings import Settings
 
-        s = Settings()
+        for name in (
+            "APP_NAME",
+            "APP_PORT",
+            "POSTGRES_IMAGE",
+            "POSTGRES_PORT",
+            "REDIS_URL",
+            "REDIS_PORT",
+            "DOCUMENTDB_URI",
+        ):
+            monkeypatch.delenv(name, raising=False)
 
+        s = Settings(_env_file=None)
+
+        assert s.APP_NAME == "cairn"
+        assert s.APP_PORT == 8000
         assert s.POSTGRES_IMAGE == "pgvector/pgvector:pg16"
+        assert s.POSTGRES_PORT == 5432
+        assert s.REDIS_URL == "redis://localhost:6379/0"
         assert s.REDIS_PORT == 6379
         assert s.DOCUMENTDB_URI == ""
 
