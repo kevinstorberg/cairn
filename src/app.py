@@ -8,6 +8,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from config.loader import load_default_config
 from src.api.errors import RequestIDMiddleware, register_error_handlers
 from src.graphs.endpoints import create_graph_router
+from src.jobs.router import create_jobs_router
+from src.jobs.runtime import shutdown_job_runtime, start_job_runtime
 from src.routers import health
 from src.routers.health import _VERSION
 from src.security.middleware import RateLimitMiddleware, RequestBodySizeLimitMiddleware, SecurityHeadersMiddleware
@@ -24,17 +26,24 @@ async def lifespan(app: FastAPI):
     from memory.backends import get_backend
 
     # Startup
+    if not hasattr(app.state, "config"):
+        app.state.config = load_default_config()
+    if not hasattr(app.state, "settings"):
+        app.state.settings = get_settings()
     app.state.memory_backend = get_backend()
     app.state.cache_backend = get_cache_backend()
 
     # Trigger service auto-registration
     import src.services  # noqa: F401
 
+    await start_job_runtime(app)
     logger.info("App startup complete")
 
     yield
 
     # Shutdown
+    await shutdown_job_runtime(app)
+
     if hasattr(app.state, "memory_backend"):
         backend = app.state.memory_backend
         if hasattr(backend, "close"):
@@ -57,6 +66,8 @@ def create_app() -> FastAPI:
         raise RuntimeError(f"Production security settings are invalid: {joined_errors}")
 
     application = FastAPI(title="Cairn", version=_VERSION, lifespan=lifespan)
+    application.state.config = config
+    application.state.settings = settings
     register_error_handlers(application)
 
     application.add_middleware(
@@ -89,6 +100,7 @@ def create_app() -> FastAPI:
 
     application.include_router(health.router, tags=["health"])
     application.include_router(create_graph_router())
+    application.include_router(create_jobs_router())
     application.include_router(ws_router)
     return application
 

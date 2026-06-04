@@ -29,6 +29,15 @@ class StorageConfig(BaseModel):
     local_path: str = "./storage"
 
 
+class JobsConfig(BaseModel):
+    enabled: bool = True
+    auto_discover: bool = True
+    scheduler_store: str = "memory"
+    status_store: str = "memory"
+    lock_backend: str = "memory"
+    require_distributed_lock: bool = False
+
+
 class SecurityHeadersConfig(BaseModel):
     enabled: bool = True
     content_type_options: str = "nosniff"
@@ -65,6 +74,7 @@ class DefaultConfig(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    jobs: JobsConfig = Field(default_factory=JobsConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 

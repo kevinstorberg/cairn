@@ -43,6 +43,7 @@ Avoid duplicating these values in docs or app code:
 | Backend protocols and factories | `memory/`, `cache/`, `assets/` |
 | HTTP routes | [src/routers/](src/routers) |
 | Graph runtime and endpoints | [src/graphs/base.py](src/graphs/base.py), [src/graphs/endpoints.py](src/graphs/endpoints.py), [docs/GRAPHS.md](docs/GRAPHS.md) |
+| Job runtime and scheduling | [src/jobs/](src/jobs), [docs/JOBS.md](docs/JOBS.md) |
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
 | Production security middleware | [src/security/middleware.py](src/security/middleware.py), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Authorization policies | [src/policies/](src/policies), [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) |
@@ -93,6 +94,8 @@ settings do not affect deterministic checks.
 - Use `build_graph_from_config()` or the built-in graph endpoints for
   config-driven ReAct graphs. Use `build_config_summary_graph()` for
   credential-free config smoke checks.
+- Register app background jobs with `@register_job()` and keep job work inside
+  services called through `JobContext`.
 
 ## Configuration
 
@@ -111,6 +114,7 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 - [Tools](docs/TOOLS.md): LangChain tool registration and async tool patterns.
 - [Backends](docs/BACKENDS.md): memory, cache, and storage backend switching.
 - [Graphs](docs/GRAPHS.md): graph builder conventions and config flow.
+- [Jobs](docs/JOBS.md): job registration, runtime, retries, locks, status, and endpoints.
 - [Deployment](docs/DEPLOYMENT.md): environment, migration, and runtime checklist.
 - [Doctor Command](docs/DOCTOR.md): bootstrap checks for local and provider setup.
 - [Security Automation](docs/SECURITY_AUTOMATION.md): dependency updates, audit scans, and secret scanning.

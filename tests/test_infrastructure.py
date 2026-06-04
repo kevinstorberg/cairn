@@ -222,8 +222,21 @@ def test_readme_links_repository_service_and_graph_runtime_docs():
 
     assert "docs/REPOSITORIES_SERVICES.md" in readme
     assert "docs/AUTHORIZATION.md" in readme
+    assert "docs/JOBS.md" in readme
     assert "src/graphs/endpoints.py" in readme
+    assert "src/jobs/" in readme
     assert "build_config_summary_graph()" in readme
+
+
+@pytest.mark.unit
+def test_jobs_docs_reference_runtime_source_of_truth():
+    jobs_doc = (Path(__file__).parents[1] / "docs" / "JOBS.md").read_text()
+
+    assert "src/jobs/definitions.py" in jobs_doc
+    assert "src/jobs/runner.py" in jobs_doc
+    assert "src/jobs/stores.py" in jobs_doc
+    assert "src/jobs/locks.py" in jobs_doc
+    assert "GET /jobs/health" in jobs_doc
 
 
 @pytest.mark.unit

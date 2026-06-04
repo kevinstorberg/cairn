@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from config.models import CacheConfig, DefaultConfig, LLMConfig, MemoryConfig, SecurityConfig, StorageConfig
+from config.models import CacheConfig, DefaultConfig, JobsConfig, LLMConfig, MemoryConfig, SecurityConfig, StorageConfig
 from scripts.doctor import CheckResult, Doctor, DoctorScript, render_results
 from src.settings import Settings
 
@@ -148,6 +148,46 @@ def test_doctor_all_optional_dependencies_include_documentdb_driver(tmp_path):
 
     assert all(result.status == "pass" for result in results)
     assert {"boto3", "langgraph.checkpoint.postgres", "pgvector", "pinecone", "pymongo", "redis"} <= checked_modules
+
+
+def test_doctor_warns_for_production_jobs_without_distributed_lock(tmp_path):
+    doctor = Doctor(
+        repo_root=tmp_path,
+        settings=Settings(
+            APP_ENV="production",
+            SECRET_KEY="x" * 32,
+            TRUSTED_HOSTS="api.example.com",
+            ANTHROPIC_API_KEY="key",
+        ),
+        config=DefaultConfig(
+            jobs=JobsConfig(lock_backend="memory"),
+            security=SecurityConfig(cors_origins=["https://api.example.com"]),
+        ),
+        command_runner=passing_command_runner,
+        import_checker=lambda module: True,
+        poetry_locator=poetry_locator,
+    )
+
+    result = doctor.check_job_runtime()
+
+    assert result.status == "warn"
+    assert "non-distributed lock backend" in result.message
+
+
+def test_doctor_fails_when_distributed_job_lock_is_required(tmp_path):
+    doctor = Doctor(
+        repo_root=tmp_path,
+        settings=Settings(ANTHROPIC_API_KEY="key"),
+        config=DefaultConfig(jobs=JobsConfig(lock_backend="memory", require_distributed_lock=True)),
+        command_runner=passing_command_runner,
+        import_checker=lambda module: True,
+        poetry_locator=poetry_locator,
+    )
+
+    result = doctor.check_job_runtime()
+
+    assert result.status == "fail"
+    assert "requires jobs.lock_backend=postgres or redis" in result.message
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -18,16 +19,44 @@ class RegisteredJob:
 
 
 class JobScheduler:
-    def __init__(self):
-        self._scheduler = AsyncIOScheduler()
+    def __init__(self, scheduler: AsyncIOScheduler | None = None):
+        self._scheduler = scheduler or AsyncIOScheduler()
         self._registered_jobs: list[RegisteredJob] = []
+        self._running = False
 
     @property
     def registered_jobs(self) -> list[RegisteredJob]:
         return self._registered_jobs
 
+    @property
+    def running(self) -> bool:
+        return self._running
+
     def register(self, job: BaseJob, *, trigger: str = "interval", **kwargs) -> None:
         self._registered_jobs.append(RegisteredJob(job=job, trigger=trigger, kwargs=kwargs))
+
+    def add_job(
+        self,
+        func: Callable[..., Awaitable[None]],
+        *,
+        job_id: str,
+        trigger: str,
+        replace_existing: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        self._scheduler.add_job(
+            func,
+            trigger=trigger,
+            id=job_id,
+            replace_existing=replace_existing,
+            **kwargs,
+        )
+
+    def get_job(self, job_id: str):
+        return self._scheduler.get_job(job_id)
+
+    def scheduled_jobs(self):
+        return self._scheduler.get_jobs()
 
     async def start(self) -> None:
         for reg in self._registered_jobs:
@@ -37,7 +66,9 @@ class JobScheduler:
                 id=reg.job.name,
                 **reg.kwargs,
             )
-        self._scheduler.start()
+        if not self._scheduler.running:
+            self._scheduler.start()
+        self._running = True
 
     def _build_job_runner(self, job: BaseJob) -> Callable[[], Awaitable[None]]:
         async def run_job() -> None:
@@ -59,4 +90,6 @@ class JobScheduler:
             logger.exception(f"Job '{job.name}' failed")
 
     async def shutdown(self) -> None:
-        self._scheduler.shutdown(wait=False)
+        if self._scheduler.running:
+            self._scheduler.shutdown(wait=False)
+        self._running = False
