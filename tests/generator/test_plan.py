@@ -36,6 +36,24 @@ def test_resource_generator_dry_run_returns_deterministic_file_plan(tmp_path):
 
 
 @pytest.mark.unit
+def test_resource_generator_frontend_opt_in_adds_feature_file(tmp_path):
+    generator = ResourceGenerator(tmp_path, revision_factory=lambda: "202606041234")
+
+    result = generator.generate(_project_spec(), dry_run=True, frontend=True)
+
+    planned = {str(file.path): file.content for file in result.planned_files}
+    feature = planned["frontend/src/features/project/feature.tsx"]
+    doc = planned["docs/resources/project.md"]
+    assert "ResourceCrudPage" in feature
+    assert 'endpoint: "/projects"' in feature
+    assert (
+        'label: "Status", name: "status", optional: false, type: "enum", enumValues: ["planned", "active", "done"]'
+        in feature
+    )
+    assert "frontend/src/features/project/feature.tsx" in doc
+
+
+@pytest.mark.unit
 def test_resource_generator_writes_conventional_cairn_layers(tmp_path):
     generator = ResourceGenerator(tmp_path, revision_factory=lambda: "202606041234")
 
@@ -104,6 +122,19 @@ def test_resource_generator_force_overwrites_conflicts(tmp_path):
     generator.generate(_project_spec(), force=True)
 
     assert "class ProjectCreate" in existing.read_text()
+
+
+@pytest.mark.unit
+def test_resource_generator_frontend_conflict_detection_uses_existing_semantics(tmp_path):
+    generator = ResourceGenerator(tmp_path, revision_factory=lambda: "202606041234")
+    existing = tmp_path / "frontend" / "src" / "features" / "project" / "feature.tsx"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("// existing frontend\n")
+
+    with pytest.raises(FileExistsError, match="Refusing to overwrite existing files"):
+        generator.generate(_project_spec(), frontend=True)
+
+    assert existing.read_text() == "// existing frontend\n"
 
 
 @pytest.mark.unit

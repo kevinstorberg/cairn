@@ -165,6 +165,33 @@ register_router(router, name="{names.router_name}")
 """
 
 
+def render_frontend_feature(spec: ResourceSpec) -> str:
+    names = names_for(spec.name)
+    fields = ",\n".join(_frontend_field(field) for field in spec.fields)
+    return f"""import {{ ResourceCrudPage, type ResourceCrudConfig }} from "../resourceCrud";
+
+const config: ResourceCrudConfig = {{
+  endpoint: "/{names.plural}",
+  fields: [
+{fields}
+  ],
+  name: "{spec.name}",
+  title: "{_label(names.plural)}",
+}};
+
+function {names.class_name}Feature() {{
+  return <ResourceCrudPage config={{config}} />;
+}}
+
+export default {{
+  Component: {names.class_name}Feature,
+  label: "{_label(names.plural)}",
+  name: "{names.router_name}",
+  path: "/{names.plural}",
+}};
+"""
+
+
 def render_migration(spec: ResourceSpec, *, revision: str, down_revision: str | None = None) -> str:
     names = names_for(spec.name)
     enum_fields = [field for field in spec.fields if field.is_enum]
@@ -245,9 +272,10 @@ def test_{spec.name}_router_registers_crud_routes():
 """
 
 
-def render_resource_doc(spec: ResourceSpec) -> str:
+def render_resource_doc(spec: ResourceSpec, *, frontend: bool = False) -> str:
     names = names_for(spec.name)
     field_lines = "\n".join(f"- `{field.name}`: `{_field_doc_type(field)}`" for field in spec.fields)
+    frontend_line = f"- Frontend feature: `frontend/src/features/{spec.name}/feature.tsx`\n" if frontend else ""
     return f"""# {names.class_name} Resource
 
 Generated Cairn resource scaffold.
@@ -260,6 +288,7 @@ Source of truth:
 - Service: `src/services/{spec.name}.py`
 - Router: `src/routers/{spec.name}.py`
 - Migration stub: `db/migrations/versions/`
+{frontend_line}
 
 Fields:
 
@@ -439,3 +468,20 @@ def _field_doc_type(field: FieldSpec) -> str:
         return f"enum[{', '.join(field.enum_values)}]"
     suffix = " optional" if field.optional else ""
     return f"{field.kind}{suffix}"
+
+
+def _frontend_field(field: FieldSpec) -> str:
+    enum_values = ""
+    if field.is_enum:
+        values = ", ".join(f'"{value}"' for value in field.enum_values)
+        enum_values = f", enumValues: [{values}]"
+    return (
+        "    { "
+        f'label: "{_label(field.name)}", name: "{field.name}", optional: {str(field.optional).lower()}, '
+        f'type: "{field.kind}"{enum_values} '
+        "},"
+    )
+
+
+def _label(value: str) -> str:
+    return " ".join(part.capitalize() for part in value.split("_"))

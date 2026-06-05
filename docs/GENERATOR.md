@@ -24,6 +24,9 @@ Use `--dry-run` to inspect planned files. Normal generation writes model,
 schema, repository, service, router, migration stub, focused tests, and resource
 docs. Existing files fail closed unless `--force` is passed.
 
+Add `--frontend` when the optional React app should get a generated feature
+registration under `frontend/src/features/`.
+
 Generated routers call `register_router()`, so app startup discovers them
 without repeated edits to `src/app.py`. Generated migration files are reviewable
 stubs; inspect them before applying migrations in a real app.

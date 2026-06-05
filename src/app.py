@@ -8,6 +8,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from config.loader import load_default_config
 from src.api.errors import RequestIDMiddleware, register_error_handlers
 from src.diagnostics.router import create_diagnostics_router
+from src.frontend.static import mount_frontend
 from src.graphs.endpoints import create_graph_router
 from src.jobs.router import create_jobs_router
 from src.jobs.runtime import shutdown_job_runtime, start_job_runtime
@@ -106,6 +107,7 @@ def create_app() -> FastAPI:
     include_registered_routers(application)
     if config.admin_debug.enabled:
         application.include_router(create_diagnostics_router(config=config, settings=settings))
+    mount_frontend(application, config.frontend)
     application.include_router(ws_router)
     return application
 

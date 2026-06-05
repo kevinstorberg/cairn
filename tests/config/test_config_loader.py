@@ -58,6 +58,10 @@ class TestLoadDefaultConfig:
         assert config.security.rate_limit_requests == 120
         assert config.security.max_request_body_bytes == 10485760
         assert config.security.headers.content_type_options == "nosniff"
+        assert config.frontend.enabled is False
+        assert config.frontend.static_dir == "frontend/dist"
+        assert config.frontend.mount_path == "/ui"
+        assert config.frontend.spa_fallback is True
 
     def test_caching_returns_same_instance(self):
         from config.loader import load_default_config

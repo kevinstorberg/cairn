@@ -41,5 +41,22 @@ services:
     ports:
       - "${REDIS_PORT:-6379}:6379"
 
+  frontend:
+    image: node:22-alpine
+    profiles:
+      - frontend
+    working_dir: /app/frontend
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:${APP_PORT:-8000}}
+      VITE_BASE_PATH: ${VITE_BASE_PATH:-/ui/}
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - .:/app
+
 volumes:
   pgdata:

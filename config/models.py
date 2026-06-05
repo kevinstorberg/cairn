@@ -44,6 +44,13 @@ class AdminDebugConfig(BaseModel):
     require_admin: bool = True
 
 
+class FrontendConfig(BaseModel):
+    enabled: bool = False
+    static_dir: str = "frontend/dist"
+    mount_path: str = "/ui"
+    spa_fallback: bool = True
+
+
 class SecurityHeadersConfig(BaseModel):
     enabled: bool = True
     content_type_options: str = "nosniff"
@@ -82,6 +89,7 @@ class DefaultConfig(BaseModel):
     storage: StorageConfig = Field(default_factory=StorageConfig)
     jobs: JobsConfig = Field(default_factory=JobsConfig)
     admin_debug: AdminDebugConfig = Field(default_factory=AdminDebugConfig)
+    frontend: FrontendConfig = Field(default_factory=FrontendConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 

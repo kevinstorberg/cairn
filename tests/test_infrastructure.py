@@ -90,6 +90,20 @@ def test_docker_compose_app_port_is_configurable():
 
 
 @pytest.mark.unit
+def test_docker_compose_frontend_service_is_profile_gated_and_port_configurable():
+    compose_path = Path(__file__).parents[1] / "docker-compose.yml"
+    compose = yaml.safe_load(compose_path.read_text())
+
+    frontend_service = compose["services"]["frontend"]
+
+    assert frontend_service["profiles"] == ["frontend"]
+    assert frontend_service["image"] == "node:22-alpine"
+    assert frontend_service["ports"] == ["${FRONTEND_PORT:-5173}:5173"]
+    assert frontend_service["working_dir"] == "/app/frontend"
+    assert "npm ci && npm run dev" in frontend_service["command"]
+
+
+@pytest.mark.unit
 def test_dockerfile_defines_production_runtime_contract():
     dockerfile = (Path(__file__).parents[1] / "Dockerfile").read_text()
     runtime_stage = dockerfile.split("FROM python:3.11-slim AS runtime", 1)[1]
@@ -109,6 +123,8 @@ def test_dockerignore_excludes_local_state_from_production_context():
     patterns = set((Path(__file__).parents[1] / ".dockerignore").read_text().splitlines())
 
     assert {".env*", ".git", ".claude", ".pytest_cache", ".ruff_cache", ".coverage", "storage", "tmp"} <= patterns
+    assert {"frontend/node_modules", "frontend/.vite", "frontend/coverage"} <= patterns
+    assert "frontend/dist" not in patterns
     assert "!.env.default" not in patterns
 
 
@@ -120,6 +136,20 @@ def test_ci_enforces_coverage_threshold():
     test_step = next(step for step in steps if step.get("name") == "Run tests with coverage")
 
     assert "--cov-fail-under=85" in test_step["run"]
+
+
+@pytest.mark.unit
+def test_ci_runs_frontend_checks():
+    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "test.yml"
+    workflow = yaml.safe_load(workflow_path.read_text())
+    steps = workflow["jobs"]["test"]["steps"]
+    commands = [step.get("run", "") for step in steps]
+    setup_node = next(step for step in steps if step.get("uses") == "actions/setup-node@v4")
+
+    assert setup_node["with"]["node-version"] == "22"
+    assert setup_node["with"]["cache-dependency-path"] == "frontend/package-lock.json"
+    assert "npm --prefix frontend ci" in commands
+    assert "npm --prefix frontend run check" in commands
 
 
 @pytest.mark.unit
@@ -135,9 +165,11 @@ def test_dependabot_updates_python_dependencies_and_actions():
     dependabot_path = Path(__file__).parents[1] / ".github" / "dependabot.yml"
     config = yaml.safe_load(dependabot_path.read_text())
     ecosystems = {entry["package-ecosystem"] for entry in config["updates"]}
+    npm_entry = next(entry for entry in config["updates"] if entry["package-ecosystem"] == "npm")
 
     assert config["version"] == 2
-    assert ecosystems == {"pip", "github-actions"}
+    assert ecosystems == {"pip", "github-actions", "npm"}
+    assert npm_entry["directory"] == "/frontend"
     assert all(entry["schedule"]["interval"] == "weekly" for entry in config["updates"])
 
 
@@ -159,6 +191,8 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
         for command in vulnerability_commands
     )
     assert any(command == "make audit" for command in vulnerability_commands)
+    assert any(command == "npm --prefix frontend ci" for command in vulnerability_commands)
+    assert any(command == "make frontend-audit" for command in vulnerability_commands)
     assert all("pip install --upgrade" not in command for command in vulnerability_commands)
     assert all("--ignore-vuln" not in command for command in vulnerability_commands)
     assert any(step.get("uses") == "gitleaks/gitleaks-action@v2" for step in secret_steps)
@@ -193,7 +227,10 @@ def test_makefile_lock_check_uses_poetry_lock_validation():
     assert "$(PYTEST) tests/ -v" in makefile
     assert "lock-check:" in makefile
     assert "poetry check --lock" in makefile
-    assert "check: lock-check lint format-check test" in makefile
+    assert "frontend-check:" in makefile
+    assert "FRONTEND_NPM = npm --prefix $(FRONTEND_DIR)" in makefile
+    assert "$(FRONTEND_NPM) run check" in makefile
+    assert "check: lock-check lint format-check test frontend-check" in makefile
 
 
 @pytest.mark.unit
@@ -202,9 +239,11 @@ def test_makefile_exposes_local_security_targets():
 
     assert "audit:" in makefile
     assert "poetry run pip-audit --progress-spinner off" in makefile
+    assert "frontend-audit:" in makefile
+    assert "$(FRONTEND_NPM) run audit" in makefile
     assert "pre-commit:" in makefile
     assert "poetry run pre-commit run --all-files --show-diff-on-failure" in makefile
-    assert "security: lock-check audit pre-commit" in makefile
+    assert "security: lock-check audit frontend-audit pre-commit" in makefile
 
 
 @pytest.mark.unit
@@ -229,6 +268,9 @@ def test_readme_links_repository_service_and_graph_runtime_docs():
     assert "src/jobs/" in readme
     assert "src/diagnostics/" in readme
     assert "lib/cairn/generator" in readme
+    assert "docs/FRONTEND.md" in readme
+    assert "frontend/src/shared/api/" in readme
+    assert "src/frontend/static.py" in readme
     assert "build_config_summary_graph()" in readme
 
 
@@ -250,6 +292,18 @@ def test_generator_docs_reference_source_of_truth_modules():
     assert "scripts/generate.py" in docs
     assert "lib/cairn/generator/" in docs
     assert "src/routers/registry.py" in docs
+    assert "--frontend" in docs
+
+
+@pytest.mark.unit
+def test_frontend_docs_reference_source_of_truth_modules():
+    docs = (Path(__file__).parents[1] / "docs" / "FRONTEND.md").read_text()
+
+    assert "frontend/package.json" in docs
+    assert "frontend/src/shared/config/" in docs
+    assert "frontend/src/shared/api/" in docs
+    assert "frontend/src/features/registry.ts" in docs
+    assert "src/frontend/static.py" in docs
 
 
 @pytest.mark.unit
