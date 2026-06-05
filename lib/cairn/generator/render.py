@@ -6,12 +6,11 @@ from lib.cairn.generator.spec import FieldSpec, ResourceSpec
 
 def render_model(spec: ResourceSpec) -> str:
     names = names_for(spec.name)
-    imports = _model_imports(spec)
+    imports = "\n\n".join((_model_imports(spec), "from db.base import Base, TimestampMixin, UUIDMixin"))
     enum_classes = "\n\n".join(_enum_class(names, field) for field in spec.fields if field.is_enum)
     fields = "\n".join(_model_field(names, field) for field in spec.fields)
     sections = [
         imports,
-        "from db.base import Base, TimestampMixin, UUIDMixin",
         enum_classes,
         "def _enum_values(enum_cls):\n    return [member.value for member in enum_cls]" if enum_classes else "",
         f"""class {names.class_name}(UUIDMixin, TimestampMixin, Base):
@@ -20,7 +19,7 @@ def render_model(spec: ResourceSpec) -> str:
 {fields}
 """,
     ]
-    return "\n\n".join(section for section in sections if section)
+    return "\n\n\n".join(section for section in sections if section)
 
 
 def render_repository(spec: ResourceSpec) -> str:
@@ -41,8 +40,6 @@ def render_schema(spec: ResourceSpec) -> str:
     update_fields = "\n".join(_schema_field(names, field, create=False) for field in spec.fields)
     read_fields = "\n".join(_schema_field(names, field, create=True) for field in spec.fields)
     return f"""{imports}
-
-from src.models.base import BaseSchema
 
 
 class {names.class_name}Create(BaseSchema):
@@ -197,27 +194,32 @@ def render_migration(spec: ResourceSpec, *, revision: str, down_revision: str | 
     enum_fields = [field for field in spec.fields if field.is_enum]
     enum_definitions = "\n".join(_migration_enum_definition(names, field) for field in enum_fields)
     enum_create = "\n".join(
-        f"    {_migration_enum_variable(names, field)}.create(op.get_bind(), checkfirst=True)" for field in enum_fields
+        f"    create_postgres_enum({_migration_enum_variable(names, field)})" for field in enum_fields
     )
     columns = "\n".join(_migration_column(names, field) for field in spec.fields)
     enum_drop = "\n".join(
-        f"    {_migration_enum_variable(names, field)}.drop(op.get_bind(), checkfirst=True)"
-        for field in reversed(enum_fields)
+        f"    drop_postgres_enum({_migration_enum_variable(names, field)})" for field in reversed(enum_fields)
     )
     down_revision_value = f'"{down_revision}"' if down_revision else "None"
     enum_definitions_block = f"\n{enum_definitions}\n" if enum_definitions else ""
     enum_create_block = f"{enum_create}\n" if enum_create else ""
-    enum_drop_block = f"{enum_drop}\n" if enum_drop else ""
+    enum_drop_block = f"\n{enum_drop}" if enum_drop else ""
+    helper_import = (
+        "\nfrom db.migrations.utils import create_postgres_enum, drop_postgres_enum, postgres_enum"
+        if enum_fields
+        else ""
+    )
     return f'''"""create {names.table_name}
 
 Revision ID: {revision}
-Revises: {down_revision or ""}
+Revises: {down_revision or "None"}
 Create Date: {datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
+{helper_import}
 
 revision = "{revision}"
 down_revision = {down_revision_value}
@@ -297,30 +299,45 @@ Fields:
 
 
 def _model_imports(spec: ResourceSpec) -> str:
-    imports = ["from sqlalchemy.orm import Mapped, mapped_column"]
-    sqlalchemy_types = sorted({_sqlalchemy_type(field) for field in spec.fields if _sqlalchemy_type(field)})
-    if sqlalchemy_types:
-        imports.append(f"from sqlalchemy import {', '.join(sqlalchemy_types)}")
-    if any(field.kind == "uuid" for field in spec.fields):
-        imports.append("from sqlalchemy.dialects.postgresql import UUID")
-        imports.append("import uuid")
-    if any(field.kind == "datetime" for field in spec.fields):
-        imports.append("from datetime import datetime")
-    if any(field.kind == "date" for field in spec.fields):
-        imports.append("from datetime import date")
+    standard_imports: list[str] = []
     if any(field.is_enum for field in spec.fields):
-        imports.append("import enum")
-    return "\n".join(imports)
+        standard_imports.append("import enum")
+    if any(field.kind == "uuid" for field in spec.fields):
+        standard_imports.append("import uuid")
+    datetime_types = []
+    if any(field.kind == "date" for field in spec.fields):
+        datetime_types.append("date")
+    if any(field.kind == "datetime" for field in spec.fields):
+        datetime_types.append("datetime")
+    if datetime_types:
+        standard_imports.append(f"from datetime import {', '.join(datetime_types)}")
+
+    sqlalchemy_imports: list[str] = []
+    sqlalchemy_types = sorted({_sqlalchemy_type(field) for field in spec.fields if _sqlalchemy_type(field)})
+    if "Enum as SQLEnum" in sqlalchemy_types:
+        sqlalchemy_imports.append("from sqlalchemy import Enum as SQLEnum")
+        sqlalchemy_types.remove("Enum as SQLEnum")
+    if sqlalchemy_types:
+        sqlalchemy_imports.append(f"from sqlalchemy import {', '.join(sqlalchemy_types)}")
+    if any(field.kind == "uuid" for field in spec.fields):
+        sqlalchemy_imports.append("from sqlalchemy.dialects.postgresql import UUID")
+    sqlalchemy_imports.append("from sqlalchemy.orm import Mapped, mapped_column")
+
+    return "\n\n".join(section for section in ("\n".join(standard_imports), "\n".join(sqlalchemy_imports)) if section)
 
 
 def _schema_imports(spec: ResourceSpec) -> str:
-    imports = ["from datetime import datetime", "from uuid import UUID"]
+    datetime_types = ["datetime"]
     if any(field.kind == "date" for field in spec.fields):
-        imports.append("from datetime import date")
+        datetime_types.insert(0, "date")
+    standard_imports = [f"from datetime import {', '.join(datetime_types)}", "from uuid import UUID"]
+
+    local_imports = []
     enum_names = [_enum_name(names_for(spec.name), field) for field in spec.fields if field.is_enum]
     if enum_names:
-        imports.append(f"from db.models.{spec.name} import {', '.join(enum_names)}")
-    return "\n".join(imports)
+        local_imports.append(f"from db.models.{spec.name} import {', '.join(enum_names)}")
+    local_imports.append("from src.models.base import BaseSchema")
+    return "\n\n".join(("\n".join(standard_imports), "\n".join(local_imports)))
 
 
 def _enum_class(names: ResourceNames, field: FieldSpec) -> str:
@@ -332,7 +349,12 @@ def _model_field(names: ResourceNames, field: FieldSpec) -> str:
     annotation = _python_type(names, field)
     if field.optional:
         annotation = f"{annotation} | None"
-    return f"    {field.name}: Mapped[{annotation}] = mapped_column({_column_type(names, field)}, nullable={field.optional})"
+    column_type = _column_type(names, field)
+    if field.is_enum:
+        return f"""    {field.name}: Mapped[{annotation}] = mapped_column(
+        {column_type}, nullable={field.optional}
+    )"""
+    return f"    {field.name}: Mapped[{annotation}] = mapped_column({column_type}, nullable={field.optional})"
 
 
 def _schema_field(names: ResourceNames, field: FieldSpec, *, create: bool) -> str:
@@ -430,10 +452,7 @@ def _migration_enum_variable(names: ResourceNames, field: FieldSpec) -> str:
 
 def _migration_enum_definition(names: ResourceNames, field: FieldSpec) -> str:
     values = ", ".join(f'"{value}"' for value in field.enum_values)
-    return (
-        f"{_migration_enum_variable(names, field)} = postgresql.ENUM("
-        f'{values}, name="{names.singular}_{field.name}", create_type=False)'
-    )
+    return f'{_migration_enum_variable(names, field)} = postgres_enum("{names.singular}_{field.name}", [{values}])'
 
 
 def _indent_or_pass(lines: str) -> str:
@@ -479,7 +498,7 @@ def _frontend_field(field: FieldSpec) -> str:
         "    { "
         f'label: "{_label(field.name)}", name: "{field.name}", optional: {str(field.optional).lower()}, '
         f'type: "{field.kind}"{enum_values} '
-        "},"
+        "}"
     )
 
 

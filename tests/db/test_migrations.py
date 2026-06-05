@@ -1,3 +1,5 @@
+import pytest
+
 from db.migrations import utils
 
 
@@ -25,3 +27,16 @@ def test_import_model_modules_imports_public_modules_only(tmp_path, monkeypatch)
     utils.import_model_modules(tmp_path, package_name="example.models")
 
     assert imported_modules == ["example.models.public_model"]
+
+
+def test_postgres_enum_helper_uses_explicit_type_creation():
+    enum_type = utils.postgres_enum("project_status", ["planned", "active"])
+
+    assert enum_type.name == "project_status"
+    assert enum_type.enums == ["planned", "active"]
+    assert enum_type.create_type is False
+
+
+def test_postgres_enum_helper_rejects_missing_values():
+    with pytest.raises(ValueError, match="requires at least one value"):
+        utils.postgres_enum("project_status", [])

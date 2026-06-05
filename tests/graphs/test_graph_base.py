@@ -1,4 +1,5 @@
 import pytest
+from langchain_core.messages import HumanMessage
 
 from config.models import CheckpointConfig, GraphConfig, GraphRuntimeConfig, LLMConfig
 from src.graphs.base import GraphFactory, GraphRuntime, build_config_summary_graph, build_graph_runtime
@@ -126,6 +127,26 @@ class TestGraphFactory:
 
         assert events == [{"type": "token", "content": "hello"}]
         assert runtime.graph.configs == [{"recursion_limit": 3, "configurable": {"thread_id": "thread-a"}}]
+
+    async def test_build_graph_runtime_invokes_with_fake_llm_provider(self, monkeypatch):
+        import src.graphs.base as graph_base
+
+        monkeypatch.setattr(
+            graph_base,
+            "load_graph_config",
+            lambda graph_name, *, require_file=False: GraphConfig(
+                name=graph_name,
+                llm=LLMConfig(provider="fake", model="local-fake", max_tokens=128),
+                runtime=GraphRuntimeConfig(recursion_limit=3),
+            ),
+        )
+
+        runtime = build_graph_runtime("workflow-a")
+        result = await runtime.ainvoke({"messages": [HumanMessage(content="Summarize this project")]})
+
+        assert "messages" in result
+        assert '"provider": "fake"' in result["messages"][-1].content
+        assert "Summarize this project" in result["messages"][-1].content
 
 
 class TestCheckpointing:

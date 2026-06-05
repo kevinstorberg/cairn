@@ -14,11 +14,11 @@ Source of truth:
 Example shape:
 
 ```bash
-cairn generate resource project name:string 'status:enum[planned,active,done]'
+cairn generate resource project name:string 'status:enum[planned,active,done]' 'due_date?:date'
 ```
 
-Quote enum field specs in shells such as zsh because `[]` are shell
-metacharacters.
+Quote enum and optional field specs in shells such as zsh because `[]` and `?`
+are shell metacharacters.
 
 Use `--dry-run` to inspect planned files. Normal generation writes model,
 schema, repository, service, router, migration stub, focused tests, and resource
@@ -30,6 +30,10 @@ registration under `frontend/src/features/`.
 Generated routers call `register_router()`, so app startup discovers them
 without repeated edits to `src/app.py`. Generated migration files are reviewable
 stubs; inspect them before applying migrations in a real app.
+
+For PostgreSQL enum columns in app-authored migrations, use the enum helpers in
+`db.migrations.utils`. Alembic autogenerate can create table changes, but it
+does not always produce downgrade-safe enum type cleanup.
 
 Generator v1 is intentionally narrow: field parsing, naming, rendering, and
 conflict detection are pure Python modules. It does not add relationships,

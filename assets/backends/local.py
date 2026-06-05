@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from assets.base import StorageBackend
+from assets.errors import InvalidStorageKey
 
 
 def _validate_key(base: Path, key: str) -> Path:
@@ -10,13 +11,13 @@ def _validate_key(base: Path, key: str) -> Path:
     that resolves outside the base directory.
     """
     if not key or key.startswith("/"):
-        raise ValueError(f"Invalid storage key: {key!r}")
+        raise InvalidStorageKey(f"Invalid storage key: {key!r}")
     if ".." in key.split("/"):
-        raise ValueError(f"Invalid storage key: {key!r}")
+        raise InvalidStorageKey(f"Invalid storage key: {key!r}")
 
     resolved = (base / key).resolve()
     if not resolved.is_relative_to(base):
-        raise ValueError(f"Storage key escapes base directory: {key!r}")
+        raise InvalidStorageKey(f"Storage key escapes base directory: {key!r}")
 
     return resolved
 

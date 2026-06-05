@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -46,6 +48,7 @@ def test_resource_generator_frontend_opt_in_adds_feature_file(tmp_path):
     doc = planned["docs/resources/project.md"]
     assert "ResourceCrudPage" in feature
     assert 'endpoint: "/projects"' in feature
+    assert "},," not in feature
     assert (
         'label: "Status", name: "status", optional: false, type: "enum", enumValues: ["planned", "active", "done"]'
         in feature
@@ -76,12 +79,9 @@ def test_resource_generator_writes_conventional_cairn_layers(tmp_path):
     assert "get_unit_of_work" in router
     assert 'router = create_router(prefix="/projects", tags=["projects"])' in router
     assert 'register_router(router, name="projects")' in router
-    assert (
-        'project_status_enum = postgresql.ENUM("planned", "active", "done", name="project_status", create_type=False)'
-        in migration
-    )
-    assert "project_status_enum.create(op.get_bind(), checkfirst=True)" in migration
-    assert "project_status_enum.drop(op.get_bind(), checkfirst=True)" in migration
+    assert 'project_status_enum = postgres_enum("project_status", ["planned", "active", "done"])' in migration
+    assert "create_postgres_enum(project_status_enum)" in migration
+    assert "drop_postgres_enum(project_status_enum)" in migration
     assert 'op.create_table(\n        "projects"' in migration
     assert "Source of truth:" in doc
 
@@ -173,8 +173,33 @@ def test_generated_python_files_compile(tmp_path):
 
 
 @pytest.mark.unit
-def test_generator_docs_quote_enum_examples():
+def test_generated_python_files_pass_ruff_checks(tmp_path):
+    generator = ResourceGenerator(tmp_path, revision_factory=lambda: "202606041234")
+    generator.generate(_project_spec(), frontend=True)
+    python_paths = [str(path) for path in tmp_path.rglob("*.py") if "__pycache__" not in path.parts]
+
+    check = subprocess.run(
+        [sys.executable, "-m", "ruff", "check", *python_paths],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+
+    format_check = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--check", *python_paths],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert format_check.returncode == 0, format_check.stdout + format_check.stderr
+
+
+@pytest.mark.unit
+def test_generator_docs_quote_shell_sensitive_examples():
     doc = Path("docs/GENERATOR.md").read_text()
 
-    assert "project name:string 'status:enum[planned,active,done]'" in doc
-    assert "Quote enum field specs" in doc
+    assert "project name:string 'status:enum[planned,active,done]' 'due_date?:date'" in doc
+    assert "Quote enum and optional field specs" in doc
