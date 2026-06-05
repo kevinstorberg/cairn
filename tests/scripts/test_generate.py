@@ -21,6 +21,27 @@ def test_generate_script_dry_run_prints_plan_without_writing(tmp_path, capsys):
 
 
 @pytest.mark.unit
+def test_generate_script_frontend_dry_run_prints_feature_plan(tmp_path, capsys):
+    status = GenerateScript().execute(
+        [
+            "resource",
+            "project",
+            "name:string",
+            "--frontend",
+            "--dry-run",
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+
+    output = capsys.readouterr()
+
+    assert status == 0
+    assert "Planned: frontend/src/features/project/feature.tsx" in output.out
+    assert not (tmp_path / "frontend" / "src" / "features" / "project" / "feature.tsx").exists()
+
+
+@pytest.mark.unit
 def test_generate_script_reports_invalid_specs_without_traceback(tmp_path, capsys):
     status = GenerateScript().execute(["resource", "project", "id:uuid", "--repo-root", str(tmp_path)])
 

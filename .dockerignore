@@ -14,3 +14,6 @@ build
 dist
 storage
 tmp
+frontend/node_modules
+frontend/.vite
+frontend/coverage

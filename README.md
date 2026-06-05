@@ -46,6 +46,7 @@ Avoid duplicating these values in docs or app code:
 | Job runtime and scheduling | [src/jobs/](src/jobs), [docs/JOBS.md](docs/JOBS.md) |
 | Admin/debug diagnostics | [src/diagnostics/](src/diagnostics), [scripts/inspect.py](scripts/inspect.py), [docs/ADMIN_DEBUG.md](docs/ADMIN_DEBUG.md) |
 | Resource generation | [lib/cairn/generator/](lib/cairn/generator), [scripts/generate.py](scripts/generate.py), [src/routers/registry.py](src/routers/registry.py), [docs/GENERATOR.md](docs/GENERATOR.md) |
+| Optional frontend | [frontend/package.json](frontend/package.json), [frontend/src/shared/config/](frontend/src/shared/config/), [frontend/src/shared/api/](frontend/src/shared/api/), [src/frontend/static.py](src/frontend/static.py), [docs/FRONTEND.md](docs/FRONTEND.md) |
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
 | Production security middleware | [src/security/middleware.py](src/security/middleware.py), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Authorization policies | [src/policies/](src/policies), [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) |
@@ -70,6 +71,7 @@ make audit
 make pre-commit
 make security
 make doctor
+make frontend-check
 make check
 ```
 
@@ -100,6 +102,8 @@ settings do not affect deterministic checks.
   services called through `JobContext`.
 - Register generated or app-owned routers with `register_router()` when you want
   startup discovery without editing `src/app.py`.
+- Keep optional frontend screens under `frontend/src/features/` and share
+  backend calls through the frontend API client.
 
 ## Configuration
 
@@ -121,6 +125,7 @@ enough. Otherwise, `Settings.database_url_for(env)` assembles the URL.
 - [Jobs](docs/JOBS.md): job registration, runtime, retries, locks, status, and endpoints.
 - [Admin Debug](docs/ADMIN_DEBUG.md): optional diagnostics endpoints and local inspection script.
 - [Generator](docs/GENERATOR.md): CRUD resource scaffold command and generated-layer conventions.
+- [Frontend](docs/FRONTEND.md): optional React + TypeScript app, static serving, and feature conventions.
 - [Deployment](docs/DEPLOYMENT.md): environment, migration, and runtime checklist.
 - [Doctor Command](docs/DOCTOR.md): bootstrap checks for local and provider setup.
 - [Security Automation](docs/SECURITY_AUTOMATION.md): dependency updates, audit scans, and secret scanning.

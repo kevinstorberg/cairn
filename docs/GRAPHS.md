@@ -10,8 +10,8 @@ Graph YAML files live under `config/graphs/{name}.yaml` and merge over
 
 ```yaml
 llm:
-  provider: openai
-  model: gpt-4o
+  provider: fake
+  model: local-fake
 tools:
   - lookup_record
 runtime:
@@ -21,6 +21,9 @@ runtime:
 checkpoint:
   backend: memory
 ```
+
+Use `llm.provider: fake` for deterministic local/manual validation without
+cloud credentials. Use `openai` or `anthropic` for real model calls.
 
 The built-in runtime kind is `react`. `runtime.prompt` loads
 `config/prompts/{name}.txt`. `checkpoint.backend` supports `none`, `memory`, and

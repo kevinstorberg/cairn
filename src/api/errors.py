@@ -11,6 +11,8 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from assets.errors import InvalidStorageKey
+from src.security.headers import apply_security_headers
 from src.settings import get_settings
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -76,6 +78,7 @@ class RequestIDMiddleware:
 
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(APIException, api_exception_handler)
+    app.add_exception_handler(InvalidStorageKey, invalid_storage_key_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
@@ -123,11 +126,13 @@ def build_error_response(
     if headers:
         response_headers.update(headers)
 
-    return JSONResponse(
+    response = JSONResponse(
         status_code=status_code,
         content=envelope.model_dump(exclude_none=True),
         headers=response_headers,
     )
+    _apply_security_headers_from_app_state(request, response)
+    return response
 
 
 async def api_exception_handler(request: Request, exc: APIException) -> JSONResponse:
@@ -138,6 +143,15 @@ async def api_exception_handler(request: Request, exc: APIException) -> JSONResp
         message=exc.message,
         details=exc.details,
         headers=exc.headers,
+    )
+
+
+async def invalid_storage_key_handler(request: Request, exc: InvalidStorageKey) -> JSONResponse:
+    return build_error_response(
+        request,
+        status_code=400,
+        code="invalid_storage_key",
+        message=str(exc),
     )
 
 
@@ -228,3 +242,16 @@ def _http_details(detail: Any) -> list[ErrorDetail]:
     if isinstance(detail, str) or detail is None:
         return []
     return [ErrorDetail(message=str(detail), type="http_error")]
+
+
+def _apply_security_headers_from_app_state(request: Request, response: JSONResponse) -> None:
+    config = getattr(request.app.state, "config", None)
+    settings = getattr(request.app.state, "settings", None)
+    if config is None or settings is None:
+        return
+
+    apply_security_headers(
+        response.headers,
+        headers_config=config.security.headers,
+        hsts_enabled=settings.SECURE_HEADERS_HSTS_ENABLED,
+    )

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from config.models import LLMConfig
-from src.agents.llm import build_llm
+from src.agents.llm import DeterministicFakeChatModel, build_llm
 
 
 @pytest.mark.unit
@@ -39,5 +39,20 @@ class TestBuildLlm:
         assert call_kwargs["max_tokens"] == 2048
 
     def test_unknown_provider_raises(self):
-        with pytest.raises(ValueError, match="Unknown LLM provider"):
+        with pytest.raises(ValueError, match="Available: anthropic, openai, fake"):
             build_llm(provider="gemini")
+
+    def test_fake_provider_returns_deterministic_chat_model(self):
+        llm = build_llm(provider="fake", model="local-fake", max_tokens=64)
+
+        assert isinstance(llm, DeterministicFakeChatModel)
+        assert llm.model == "local-fake"
+        assert llm.max_tokens == 64
+
+    def test_fake_provider_supports_tool_binding(self):
+        llm = build_llm(provider="fake")
+
+        bound = llm.bind_tools([{"name": "summarize_project"}])
+
+        assert isinstance(bound, DeterministicFakeChatModel)
+        assert bound.tool_names == ("summarize_project",)

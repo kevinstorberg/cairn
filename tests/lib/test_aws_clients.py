@@ -1,5 +1,6 @@
 import pytest
 
+from assets.errors import InvalidStorageKey
 from lib.aws.documentdb import DocumentDBClient
 from lib.aws.s3 import S3Client
 
@@ -45,7 +46,7 @@ def test_s3_client_upload_download_delete_exists_roundtrip():
 def test_s3_client_rejects_path_traversal():
     client = S3Client(bucket="bucket", client=FakeS3Client())
 
-    with pytest.raises(ValueError, match="Invalid storage key"):
+    with pytest.raises(InvalidStorageKey, match="Invalid storage key"):
         client.upload("../secret.txt", b"content")
 
 

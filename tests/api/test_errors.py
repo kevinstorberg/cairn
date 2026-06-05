@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from assets.errors import InvalidStorageKey
 from src.api.errors import REQUEST_ID_HEADER, APIException, RequestIDMiddleware
 from src.app import create_app
 from src.settings import reset_settings
@@ -39,6 +40,10 @@ def create_error_test_app():
     @app.get("/raise-unhandled")
     async def raise_unhandled():
         raise RuntimeError("database password leaked")
+
+    @app.get("/raise-storage-key")
+    async def raise_storage_key():
+        raise InvalidStorageKey("Invalid storage key: '../escape.txt'")
 
     return app
 
@@ -94,6 +99,7 @@ async def test_http_exception_uses_error_envelope(client):
     body = response.json()
 
     assert response.status_code == 401
+    assert_security_headers(response)
     assert body == {
         "error": {
             "code": "unauthorized",
@@ -124,6 +130,7 @@ async def test_api_exception_preserves_explicit_error_fields(client):
     error = response.json()["error"]
 
     assert response.status_code == 409
+    assert_security_headers(response)
     assert error == {
         "code": "conflict",
         "message": "Item already exists",
@@ -139,6 +146,7 @@ async def test_validation_error_details_are_normalized(client):
     details_by_field = {detail["field"]: detail for detail in error["details"]}
 
     assert response.status_code == 422
+    assert_security_headers(response)
     assert error["code"] == "validation_error"
     assert error["message"] == "Request validation failed"
     assert error["request_id"] == "request-422"
@@ -153,6 +161,7 @@ async def test_unhandled_exception_hides_details_by_default(client):
     error = response.json()["error"]
 
     assert response.status_code == 500
+    assert_security_headers(response)
     assert error == {
         "code": "internal_server_error",
         "message": "Internal server error",
@@ -160,6 +169,21 @@ async def test_unhandled_exception_hides_details_by_default(client):
         "request_id": "request-500",
     }
     assert "database password leaked" not in response.text
+
+
+@pytest.mark.integration
+async def test_storage_key_exception_uses_error_envelope(client):
+    response = await client.get("/raise-storage-key", headers={REQUEST_ID_HEADER: "request-storage"})
+    error = response.json()["error"]
+
+    assert response.status_code == 400
+    assert_security_headers(response)
+    assert error == {
+        "code": "invalid_storage_key",
+        "message": "Invalid storage key: '../escape.txt'",
+        "details": [],
+        "request_id": "request-storage",
+    }
 
 
 @pytest.mark.unit
@@ -182,5 +206,13 @@ async def test_unhandled_exception_can_include_debug_details(monkeypatch):
     error = response.json()["error"]
 
     assert response.status_code == 500
+    assert_security_headers(response)
     assert error["request_id"] == "request-debug"
     assert error["details"] == [{"message": "database password leaked", "type": "RuntimeError"}]
+
+
+def assert_security_headers(response) -> None:
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"

@@ -15,7 +15,12 @@ class GenerateScript(BaseScript):
         subcommands = parser.add_subparsers(dest="command", required=True)
         resource = subcommands.add_parser("resource", help="Generate a CRUD resource")
         resource.add_argument("name", help="singular snake_case resource name")
-        resource.add_argument("fields", nargs="+", help="field specs such as name:string or 'status:enum[a,b]'")
+        resource.add_argument(
+            "fields",
+            nargs="+",
+            help="field specs such as name:string, 'due_date?:date', or 'status:enum[a,b]'",
+        )
+        resource.add_argument("--frontend", action="store_true", help="also generate a React feature scaffold")
         resource.add_argument("--dry-run", action="store_true", help="print planned files without writing")
         resource.add_argument("--force", action="store_true", help="overwrite existing generated files")
         resource.add_argument("--repo-root", type=Path, default=None, help="override repository root")
@@ -27,7 +32,7 @@ class GenerateScript(BaseScript):
         try:
             spec = parse_resource_spec(args.name, args.fields)
             generator = ResourceGenerator(args.repo_root or get_repo_root(__file__))
-            result = generator.generate(spec, dry_run=args.dry_run, force=args.force)
+            result = generator.generate(spec, dry_run=args.dry_run, force=args.force, frontend=args.frontend)
         except (FileExistsError, ValueError) as e:
             print(f"generate: {e}", file=sys.stderr)
             return 1

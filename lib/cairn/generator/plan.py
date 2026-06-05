@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lib.cairn.generator.render import (
+    render_frontend_feature,
     render_migration,
     render_model,
     render_repository,
@@ -45,10 +46,16 @@ class ResourceGenerator:
         self.repo_root = repo_root
         self._revision_factory = revision_factory or _default_revision
 
-    def plan(self, spec: ResourceSpec, *, migration_path: Path | None = None) -> tuple[PlannedFile, ...]:
+    def plan(
+        self,
+        spec: ResourceSpec,
+        *,
+        frontend: bool = False,
+        migration_path: Path | None = None,
+    ) -> tuple[PlannedFile, ...]:
         migration = migration_path or self._new_migration_path(spec)
         revision = _revision_from_migration_path(migration, spec)
-        return (
+        files = [
             PlannedFile(Path("db") / "models" / "__init__.py", ""),
             PlannedFile(Path("db") / "models" / f"{spec.name}.py", render_model(spec)),
             PlannedFile(Path("db") / "repositories" / "__init__.py", ""),
@@ -63,17 +70,34 @@ class ResourceGenerator:
             PlannedFile(Path("tests") / spec.name / "__init__.py", ""),
             PlannedFile(Path("tests") / spec.name / f"test_{spec.name}_schemas.py", render_schema_test(spec)),
             PlannedFile(Path("tests") / spec.name / f"test_{spec.name}_router.py", render_router_test(spec)),
-            PlannedFile(Path("docs") / "resources" / f"{spec.name}.md", render_resource_doc(spec)),
+        ]
+        if frontend:
+            files.append(
+                PlannedFile(
+                    Path("frontend") / "src" / "features" / spec.name / "feature.tsx",
+                    render_frontend_feature(spec),
+                )
+            )
+        files.append(
+            PlannedFile(Path("docs") / "resources" / f"{spec.name}.md", render_resource_doc(spec, frontend=frontend))
         )
+        return tuple(files)
 
-    def generate(self, spec: ResourceSpec, *, dry_run: bool = False, force: bool = False) -> GenerateResult:
+    def generate(
+        self,
+        spec: ResourceSpec,
+        *,
+        dry_run: bool = False,
+        force: bool = False,
+        frontend: bool = False,
+    ) -> GenerateResult:
         existing_migrations = self._existing_resource_migrations(spec)
         if len(existing_migrations) > 1:
             formatted = ", ".join(str(path) for path in existing_migrations)
             raise FileExistsError(f"Multiple existing migrations match resource {spec.name!r}: {formatted}")
 
         migration_path = existing_migrations[0] if force and existing_migrations else None
-        planned_files = self.plan(spec, migration_path=migration_path)
+        planned_files = self.plan(spec, frontend=frontend, migration_path=migration_path)
         conflicts = self._conflicts_for_generation(planned_files, existing_migrations, force=force)
         if conflicts and not force:
             formatted = ", ".join(str(path) for path in conflicts)

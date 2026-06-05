@@ -33,6 +33,12 @@ admin_debug:
   expose_config_values: false
   require_admin: true
 
+frontend:
+  enabled: false
+  static_dir: frontend/dist
+  mount_path: /ui
+  spa_fallback: true
+
 security:
   cors_origins:
     - "*"

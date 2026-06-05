@@ -22,6 +22,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
       - name: Install Poetry
         run: pip install poetry
 
@@ -45,6 +51,12 @@ jobs:
 
       - name: Audit installed Python packages
         run: make audit
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Audit frontend packages
+        run: make frontend-audit
 
   secret-scan:
     runs-on: ubuntu-latest

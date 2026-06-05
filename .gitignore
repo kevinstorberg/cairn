@@ -34,3 +34,11 @@ coverage.xml
 # Local scratch files
 tmp/*
 !tmp/.gitkeep
+
+# Optional frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
+frontend/.env.local
+frontend/.env.production

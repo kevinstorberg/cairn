@@ -1,13 +1,14 @@
 import asyncio
 
+from assets.errors import InvalidStorageKey
 from lib.aws.base import AWSClientProtocol
 
 
 def _validate_s3_key(key: str) -> str:
     if not key or key.startswith("/"):
-        raise ValueError(f"Invalid storage key: {key!r}")
+        raise InvalidStorageKey(f"Invalid storage key: {key!r}")
     if ".." in key.split("/"):
-        raise ValueError(f"Invalid storage key: {key!r}")
+        raise InvalidStorageKey(f"Invalid storage key: {key!r}")
     return key
 
 

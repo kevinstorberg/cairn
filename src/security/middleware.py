@@ -11,6 +11,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from config.models import SecurityHeadersConfig
 from src.api.errors import REQUEST_ID_HEADER, ErrorBody, ErrorEnvelope, normalize_request_id
+from src.security.headers import apply_security_headers
 
 
 @dataclass(frozen=True)
@@ -64,15 +65,11 @@ class SecurityHeadersMiddleware:
 
         async def send_with_security_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
-                headers = MutableHeaders(scope=message)
-                _set_header_if_absent(headers, "X-Content-Type-Options", self.headers_config.content_type_options)
-                _set_header_if_absent(headers, "X-Frame-Options", self.headers_config.frame_options)
-                _set_header_if_absent(headers, "Referrer-Policy", self.headers_config.referrer_policy)
-                _set_header_if_absent(headers, "Permissions-Policy", self.headers_config.permissions_policy)
-                _set_header_if_absent(headers, "Content-Security-Policy", self.headers_config.content_security_policy)
-                if self.hsts_enabled:
-                    hsts = f"max-age={self.headers_config.hsts_max_age_seconds}; includeSubDomains"
-                    _set_header_if_absent(headers, "Strict-Transport-Security", hsts)
+                apply_security_headers(
+                    MutableHeaders(scope=message),
+                    headers_config=self.headers_config,
+                    hsts_enabled=self.hsts_enabled,
+                )
             await send(message)
 
         await self.app(scope, receive, send_with_security_headers)
@@ -225,8 +222,3 @@ def _content_length(scope: Scope) -> int | None:
         return int(value)
     except ValueError:
         return None
-
-
-def _set_header_if_absent(headers: MutableHeaders, name: str, value: str) -> None:
-    if value and name not in headers:
-        headers[name] = value
