@@ -68,5 +68,10 @@ def load_tools(tool_names: list[str], context: ToolContext) -> list[Any]:
     return tools
 
 
+def discover_tools() -> dict[str, Callable[[ToolContext], Any]]:
+    _auto_import_tools()
+    return dict(TOOL_FACTORY)
+
+
 # Call auto-import after all functions are defined
 _auto_import_tools()

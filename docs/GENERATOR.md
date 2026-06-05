@@ -14,8 +14,11 @@ Source of truth:
 Example shape:
 
 ```bash
-cairn generate resource project name:string status:enum[planned,active,done]
+cairn generate resource project name:string 'status:enum[planned,active,done]'
 ```
+
+Quote enum field specs in shells such as zsh because `[]` are shell
+metacharacters.
 
 Use `--dry-run` to inspect planned files. Normal generation writes model,
 schema, repository, service, router, migration stub, focused tests, and resource

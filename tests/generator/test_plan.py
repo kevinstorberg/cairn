@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from lib.cairn.generator import ResourceGenerator, parse_resource_spec
@@ -48,15 +50,35 @@ def test_resource_generator_writes_conventional_cairn_layers(tmp_path):
     doc = (tmp_path / "docs" / "resources" / "project.md").read_text()
 
     assert "class Project(UUIDMixin, TimestampMixin, Base):" in model
-    assert 'SQLEnum(ProjectStatus, name="project_status")' in model
+    assert "def _enum_values(enum_cls):" in model
+    assert 'SQLEnum(ProjectStatus, values_callable=_enum_values, name="project_status")' in model
     assert "class ProjectRepository(BaseRepository[Project]):" in repository
     assert "class ProjectService(ApplicationService):" in service
     assert "UnitOfWork" in service
     assert "get_unit_of_work" in router
     assert 'router = create_router(prefix="/projects", tags=["projects"])' in router
     assert 'register_router(router, name="projects")' in router
+    assert (
+        'project_status_enum = postgresql.ENUM("planned", "active", "done", name="project_status", create_type=False)'
+        in migration
+    )
+    assert "project_status_enum.create(op.get_bind(), checkfirst=True)" in migration
+    assert "project_status_enum.drop(op.get_bind(), checkfirst=True)" in migration
     assert 'op.create_table(\n        "projects"' in migration
     assert "Source of truth:" in doc
+
+
+@pytest.mark.unit
+def test_resource_generator_repeated_run_fails_before_duplicate_migration(tmp_path):
+    revisions = iter(["202606041234", "202606041235"])
+    generator = ResourceGenerator(tmp_path, revision_factory=lambda: next(revisions))
+    generator.generate(_project_spec())
+
+    with pytest.raises(FileExistsError, match="Refusing to overwrite existing files"):
+        generator.generate(_project_spec())
+
+    migrations = list((tmp_path / "db" / "migrations" / "versions").glob("*_create_project.py"))
+    assert [migration.name for migration in migrations] == ["202606041234_create_project.py"]
 
 
 @pytest.mark.unit
@@ -85,6 +107,31 @@ def test_resource_generator_force_overwrites_conflicts(tmp_path):
 
 
 @pytest.mark.unit
+def test_resource_generator_force_reuses_single_existing_migration(tmp_path):
+    revisions = iter(["202606041234", "202606041235"])
+    generator = ResourceGenerator(tmp_path, revision_factory=lambda: next(revisions))
+    generator.generate(_project_spec())
+
+    result = generator.generate(_project_spec(), force=True)
+
+    written = {str(path) for path in result.written_files}
+    assert "db/migrations/versions/202606041234_create_project.py" in written
+    assert not (tmp_path / "db" / "migrations" / "versions" / "202606041235_create_project.py").exists()
+
+
+@pytest.mark.unit
+def test_resource_generator_rejects_multiple_existing_migrations_even_with_force(tmp_path):
+    versions = tmp_path / "db" / "migrations" / "versions"
+    versions.mkdir(parents=True)
+    (versions / "202606041234_create_project.py").write_text("# first\n")
+    (versions / "202606041235_create_project.py").write_text("# second\n")
+    generator = ResourceGenerator(tmp_path, revision_factory=lambda: "202606041236")
+
+    with pytest.raises(FileExistsError, match="Multiple existing migrations match resource"):
+        generator.generate(_project_spec(), force=True)
+
+
+@pytest.mark.unit
 def test_generated_python_files_compile(tmp_path):
     generator = ResourceGenerator(tmp_path, revision_factory=lambda: "202606041234")
     result = generator.generate(_project_spec(), dry_run=True)
@@ -92,3 +139,11 @@ def test_generated_python_files_compile(tmp_path):
     for file in result.planned_files:
         if file.path.suffix == ".py" and file.content:
             compile(file.content, str(file.path), "exec")
+
+
+@pytest.mark.unit
+def test_generator_docs_quote_enum_examples():
+    doc = Path("docs/GENERATOR.md").read_text()
+
+    assert "project name:string 'status:enum[planned,active,done]'" in doc
+    assert "Quote enum field specs" in doc

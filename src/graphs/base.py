@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from inspect import isawaitable
 from typing import Any, Protocol, runtime_checkable
 
 from langgraph.graph import StateGraph
@@ -35,11 +36,20 @@ class GraphRuntime:
         return await self.graph.ainvoke(state, config=self.run_config(thread_id=thread_id))
 
     async def astream_events(self, state: dict[str, Any], *, thread_id: str | None = None):
-        async for event in self.graph.astream_events(
+        events = self.graph.astream_events(
             state,
             config=self.run_config(thread_id=thread_id),
-            version="v3",
-        ):
+            version="v2",
+        )
+        if isawaitable(events):
+            events = await events
+
+        if hasattr(events, "__aiter__"):
+            async for event in events:
+                yield event
+            return
+
+        for event in events:
             yield event
 
 
@@ -49,7 +59,7 @@ def build_graph_runtime(
     model_override: str | None = None,
     scope: dict | None = None,
 ) -> GraphRuntime:
-    config = load_graph_config(graph_name)
+    config = load_graph_config(graph_name, require_file=True)
     runtime_kind = config.runtime.kind.lower()
     if runtime_kind != "react":
         raise ValueError(f"Unknown graph runtime kind: {config.runtime.kind!r}")
