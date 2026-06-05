@@ -9,18 +9,18 @@ def render_model(spec: ResourceSpec) -> str:
     imports = _model_imports(spec)
     enum_classes = "\n\n".join(_enum_class(names, field) for field in spec.fields if field.is_enum)
     fields = "\n".join(_model_field(names, field) for field in spec.fields)
-    enum_block = f"\n\n{enum_classes}" if enum_classes else ""
-    return f"""{imports}
-
-from db.base import Base, TimestampMixin, UUIDMixin
-
-{enum_block}
-
-class {names.class_name}(UUIDMixin, TimestampMixin, Base):
+    sections = [
+        imports,
+        "from db.base import Base, TimestampMixin, UUIDMixin",
+        enum_classes,
+        "def _enum_values(enum_cls):\n    return [member.value for member in enum_cls]" if enum_classes else "",
+        f"""class {names.class_name}(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "{names.table_name}"
 
 {fields}
-"""
+""",
+    ]
+    return "\n\n".join(section for section in sections if section)
 
 
 def render_repository(spec: ResourceSpec) -> str:
@@ -167,8 +167,20 @@ register_router(router, name="{names.router_name}")
 
 def render_migration(spec: ResourceSpec, *, revision: str, down_revision: str | None = None) -> str:
     names = names_for(spec.name)
+    enum_fields = [field for field in spec.fields if field.is_enum]
+    enum_definitions = "\n".join(_migration_enum_definition(names, field) for field in enum_fields)
+    enum_create = "\n".join(
+        f"    {_migration_enum_variable(names, field)}.create(op.get_bind(), checkfirst=True)" for field in enum_fields
+    )
     columns = "\n".join(_migration_column(names, field) for field in spec.fields)
+    enum_drop = "\n".join(
+        f"    {_migration_enum_variable(names, field)}.drop(op.get_bind(), checkfirst=True)"
+        for field in reversed(enum_fields)
+    )
     down_revision_value = f'"{down_revision}"' if down_revision else "None"
+    enum_definitions_block = f"\n{enum_definitions}\n" if enum_definitions else ""
+    enum_create_block = f"{enum_create}\n" if enum_create else ""
+    enum_drop_block = f"{enum_drop}\n" if enum_drop else ""
     return f'''"""create {names.table_name}
 
 Revision ID: {revision}
@@ -184,10 +196,10 @@ revision = "{revision}"
 down_revision = {down_revision_value}
 branch_labels = None
 depends_on = None
-
+{enum_definitions_block}
 
 def upgrade() -> None:
-    op.create_table(
+{enum_create_block}    op.create_table(
         "{names.table_name}",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -198,6 +210,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("{names.table_name}")
+{enum_drop_block}
 '''
 
 
@@ -335,7 +348,9 @@ def _column_type(names: ResourceNames, field: FieldSpec) -> str:
     if field.kind == "uuid":
         return "UUID(as_uuid=True)"
     if field.is_enum:
-        return f'SQLEnum({_enum_name(names, field)}, name="{names.singular}_{field.name}")'
+        return (
+            f'SQLEnum({_enum_name(names, field)}, values_callable=_enum_values, name="{names.singular}_{field.name}")'
+        )
     raise ValueError(f"Unsupported field kind: {field.kind}")
 
 
@@ -357,8 +372,7 @@ def _migration_type(names: ResourceNames, field: FieldSpec) -> str:
     if field.kind == "uuid":
         return "postgresql.UUID(as_uuid=True)"
     if field.is_enum:
-        values = ", ".join(f'"{value}"' for value in field.enum_values)
-        return f'sa.Enum({values}, name="{names.singular}_{field.name}")'
+        return _migration_enum_variable(names, field)
     raise ValueError(f"Unsupported field kind: {field.kind}")
 
 
@@ -379,6 +393,18 @@ def _python_type(names: ResourceNames, field: FieldSpec, *, for_schema: bool = F
 
 def _enum_name(names: ResourceNames, field: FieldSpec) -> str:
     return f"{names.class_name}{''.join(part.capitalize() for part in field.name.split('_'))}"
+
+
+def _migration_enum_variable(names: ResourceNames, field: FieldSpec) -> str:
+    return f"{names.singular}_{field.name}_enum"
+
+
+def _migration_enum_definition(names: ResourceNames, field: FieldSpec) -> str:
+    values = ", ".join(f'"{value}"' for value in field.enum_values)
+    return (
+        f"{_migration_enum_variable(names, field)} = postgresql.ENUM("
+        f'{values}, name="{names.singular}_{field.name}", create_type=False)'
+    )
 
 
 def _indent_or_pass(lines: str) -> str:

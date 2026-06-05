@@ -2,6 +2,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from config.loader import GraphConfigNotFound
 from src.api.errors import RequestIDMiddleware, register_error_handlers
 from src.graphs.endpoints import create_graph_router
 
@@ -85,6 +86,22 @@ async def test_graph_builder_value_error_uses_configuration_error_envelope():
     assert response.status_code == 400
     assert error["code"] == "graph_configuration_error"
     assert error["message"] == "Unknown graph runtime kind: 'custom'"
+
+
+@pytest.mark.integration
+async def test_missing_graph_config_uses_configuration_error_envelope():
+    def graph_builder(graph_name, *, scope):
+        raise GraphConfigNotFound(f"Graph config not found: config/graphs/{graph_name}.yaml")
+
+    client = create_client(graph_builder)
+
+    async with client:
+        response = await client.post("/graphs/missing/invoke", json={"state": {}})
+
+    error = response.json()["error"]
+    assert response.status_code == 400
+    assert error["code"] == "graph_configuration_error"
+    assert "config/graphs/missing.yaml" in error["message"]
 
 
 @pytest.mark.integration

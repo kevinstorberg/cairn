@@ -80,6 +80,12 @@ class TestLoadGraphConfig:
         assert config.runtime.recursion_limit == 25
         assert config.checkpoint.backend == "none"
 
+    def test_required_graph_file_raises_for_missing_config(self):
+        from config.loader import GraphConfigNotFound, load_graph_config
+
+        with pytest.raises(GraphConfigNotFound, match="Graph config not found"):
+            load_graph_config("nonexistent_required_graph_xyz", require_file=True)
+
     def test_legacy_checkpointing_true_maps_to_memory_checkpoint_backend(self):
         from config.models import GraphConfig
 

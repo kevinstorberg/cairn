@@ -1,7 +1,7 @@
 import pytest
 
 from config.models import CheckpointConfig, GraphConfig, GraphRuntimeConfig, LLMConfig
-from src.graphs.base import GraphFactory, build_config_summary_graph, build_graph_runtime
+from src.graphs.base import GraphFactory, GraphRuntime, build_config_summary_graph, build_graph_runtime
 from src.graphs.checkpointing import create_checkpointer
 from src.models.state import BaseState, add_messages_reducer
 
@@ -46,8 +46,9 @@ class TestGraphFactory:
 
         calls = {}
 
-        def fake_load_graph_config(graph_name: str):
+        def fake_load_graph_config(graph_name: str, *, require_file: bool = False):
             calls["graph_name"] = graph_name
+            calls["require_file"] = require_file
             return GraphConfig(
                 name=graph_name,
                 llm=LLMConfig(provider="openai", model="model-a", max_tokens=123),
@@ -85,6 +86,7 @@ class TestGraphFactory:
         assert runtime.graph.invoked is False
         assert runtime.recursion_limit == 7
         assert calls["graph_name"] == "workflow-a"
+        assert calls["require_file"] is True
         assert calls["tool_names"] == ["tool-a"]
         assert calls["tool_context"].graph_name == "workflow-a"
         assert calls["tool_context"].scope == {"request_id": "request-1"}
@@ -105,11 +107,25 @@ class TestGraphFactory:
         monkeypatch.setattr(
             graph_base,
             "load_graph_config",
-            lambda graph_name: GraphConfig(name=graph_name, runtime=GraphRuntimeConfig(kind="custom")),
+            lambda graph_name, *, require_file=False: GraphConfig(
+                name=graph_name, runtime=GraphRuntimeConfig(kind="custom")
+            ),
         )
 
         with pytest.raises(ValueError, match="Unknown graph runtime kind"):
             build_graph_runtime("workflow-a")
+
+    async def test_graph_runtime_awaits_awaitable_event_stream(self):
+        runtime = GraphRuntime(
+            graph=AwaitableStreamGraph(),
+            config=GraphConfig(name="workflow-a"),
+            recursion_limit=3,
+        )
+
+        events = [event async for event in runtime.astream_events({"messages": []}, thread_id="thread-a")]
+
+        assert events == [{"type": "token", "content": "hello"}]
+        assert runtime.graph.configs == [{"recursion_limit": 3, "configurable": {"thread_id": "thread-a"}}]
 
 
 class TestCheckpointing:
@@ -186,6 +202,22 @@ class FakeCompiledGraph:
         self.invoked = True
         self.configs.append(config)
         return {"state": state}
+
+
+class AwaitableStreamGraph:
+    def __init__(self) -> None:
+        self.configs = []
+
+    def astream_events(self, state, *, config, version):
+        self.configs.append(config)
+        assert version == "v2"
+        return self._stream()
+
+    async def _stream(self):
+        async def events():
+            yield {"type": "token", "content": "hello"}
+
+        return events()
 
 
 class FakePostgresSaver:

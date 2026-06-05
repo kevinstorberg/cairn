@@ -49,6 +49,42 @@ def test_registry_inspector_reports_services_tools_and_jobs():
     assert "diagnostic_job" in result.details["jobs"]
 
 
+def test_registry_inspector_discovers_jobs_and_routers(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr("src.jobs.registry.discover_jobs", lambda: calls.append("jobs"))
+    monkeypatch.setattr("src.jobs.registry.registered_jobs", lambda: {"discovered_job": object()})
+    monkeypatch.setattr("src.routers.registry.discover_routers", lambda: calls.append("routers"))
+    monkeypatch.setattr("src.routers.registry.registered_routers", lambda: {"discovered_router": object()})
+    monkeypatch.setattr("src.tools.discover_tools", lambda: calls.append("tools"))
+
+    result = inspect_registries()
+
+    assert calls == ["tools", "jobs", "routers"]
+    assert result.details["jobs"] == ["discovered_job"]
+    assert result.details["routers"] == ["discovered_router"]
+
+
+def test_registry_inspector_keeps_runtime_jobs_separate(monkeypatch):
+    class Runtime:
+        def list_jobs(self):
+            return [{"name": "runtime_job"}]
+
+    class App:
+        state = type("State", (), {"job_runtime": Runtime()})()
+
+    monkeypatch.setattr("src.jobs.registry.discover_jobs", lambda: None)
+    monkeypatch.setattr("src.jobs.registry.registered_jobs", lambda: {"static_job": object()})
+    monkeypatch.setattr("src.routers.registry.discover_routers", lambda: None)
+    monkeypatch.setattr("src.routers.registry.registered_routers", lambda: {"static_router": object()})
+
+    result = inspect_registries(App())
+
+    assert result.details["jobs"] == ["static_job"]
+    assert result.details["runtime_jobs"] == ["runtime_job"]
+    assert result.details["routers"] == ["static_router"]
+
+
 def test_migration_inspector_reports_current_and_heads():
     def runner(command, cwd):
         assert cwd == Path("/repo")

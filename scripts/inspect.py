@@ -24,7 +24,7 @@ class InspectScript(BaseScript):
             print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
             return 0
         if args.target == "registries":
-            result = inspect_registries()
+            result = inspect_registries(discover=True)
             print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
             return 0
         if args.target == "migrations":

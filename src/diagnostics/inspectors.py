@@ -34,11 +34,17 @@ def inspect_config(
     )
 
 
-def inspect_registries(app: Any | None = None) -> DiagnosticResult:
+def inspect_registries(app: Any | None = None, *, discover: bool = True) -> DiagnosticResult:
     import src.services  # noqa: F401
-    from src.jobs.registry import registered_jobs
+    from src.jobs.registry import discover_jobs, registered_jobs
+    from src.routers.registry import discover_routers, registered_routers
     from src.services.base import SERVICE_REGISTRY
-    from src.tools import TOOL_FACTORY
+    from src.tools import TOOL_FACTORY, discover_tools
+
+    if discover:
+        discover_tools()
+        discover_jobs()
+        discover_routers()
 
     details: dict[str, Any] = {
         "services": sorted(SERVICE_REGISTRY),
@@ -48,12 +54,7 @@ def inspect_registries(app: Any | None = None) -> DiagnosticResult:
     runtime = getattr(getattr(app, "state", None), "job_runtime", None)
     if runtime is not None:
         details["runtime_jobs"] = [job["name"] for job in runtime.list_jobs()]
-    try:
-        from src.routers.registry import registered_routers
-
-        details["routers"] = sorted(registered_routers())
-    except ImportError:
-        details["routers"] = []
+    details["routers"] = sorted(registered_routers())
     return DiagnosticResult(name="registries", status="pass", details=details)
 
 

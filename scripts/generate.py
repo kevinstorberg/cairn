@@ -15,7 +15,7 @@ class GenerateScript(BaseScript):
         subcommands = parser.add_subparsers(dest="command", required=True)
         resource = subcommands.add_parser("resource", help="Generate a CRUD resource")
         resource.add_argument("name", help="singular snake_case resource name")
-        resource.add_argument("fields", nargs="+", help="field specs such as name:string or status:enum[a,b]")
+        resource.add_argument("fields", nargs="+", help="field specs such as name:string or 'status:enum[a,b]'")
         resource.add_argument("--dry-run", action="store_true", help="print planned files without writing")
         resource.add_argument("--force", action="store_true", help="overwrite existing generated files")
         resource.add_argument("--repo-root", type=Path, default=None, help="override repository root")
