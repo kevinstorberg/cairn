@@ -1,12 +1,13 @@
 import { Activity, KeyRound } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 
-import { Dashboard } from "./Dashboard";
 import { features } from "./features/registry";
 import { ApiClientProvider, createApiClient, type ApiClient } from "./shared/api";
 import { resolveRuntimeConfig, type RuntimeConfig } from "./shared/config";
 import { Button } from "./shared/ui";
+
+const Dashboard = lazy(() => import("./Dashboard").then((module) => ({ default: module.Dashboard })));
 
 interface AppProps {
   apiClient?: ApiClient;
@@ -68,12 +69,14 @@ export function App({ apiClient, runtimeConfig = resolveRuntimeConfig() }: AppPr
           </Button>
         </header>
         <ApiClientProvider client={client}>
-          <Routes>
-            <Route element={<Dashboard apiClient={client} />} path="/" />
-            {features.map((feature) => (
-              <Route element={<feature.Component />} key={feature.name} path={feature.path} />
-            ))}
-          </Routes>
+          <Suspense fallback={<div className="loading-state">Loading...</div>}>
+            <Routes>
+              <Route element={<Dashboard apiClient={client} />} path="/" />
+              {features.map((feature) => (
+                <Route element={<feature.Component />} key={feature.name} path={feature.path} />
+              ))}
+            </Routes>
+          </Suspense>
         </ApiClientProvider>
       </main>
     </div>

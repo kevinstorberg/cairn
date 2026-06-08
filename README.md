@@ -46,12 +46,14 @@ Avoid duplicating these values in docs or app code:
 | Job runtime and scheduling | [src/jobs/](src/jobs), [docs/JOBS.md](docs/JOBS.md) |
 | Admin/debug diagnostics | [src/diagnostics/](src/diagnostics), [scripts/inspect.py](scripts/inspect.py), [docs/ADMIN_DEBUG.md](docs/ADMIN_DEBUG.md) |
 | Resource generation | [lib/cairn/generator/](lib/cairn/generator), [scripts/generate.py](scripts/generate.py), [src/routers/registry.py](src/routers/registry.py), [docs/GENERATOR.md](docs/GENERATOR.md) |
-| Optional frontend | [frontend/package.json](frontend/package.json), [frontend/src/shared/config/](frontend/src/shared/config/), [frontend/src/shared/api/](frontend/src/shared/api/), [src/frontend/static.py](src/frontend/static.py), [docs/FRONTEND.md](docs/FRONTEND.md) |
+| Optional frontend | [frontend/package.json](frontend/package.json), [frontend/src/App.tsx](frontend/src/App.tsx), [frontend/vite.config.ts](frontend/vite.config.ts), [frontend/src/shared/config/](frontend/src/shared/config/), [frontend/src/shared/api/](frontend/src/shared/api/), [src/frontend/static.py](src/frontend/static.py), [docs/FRONTEND.md](docs/FRONTEND.md) |
+| Optional extension apps | [src/extensions/](src/extensions), [config/default.yaml](config/default.yaml), [config/models.py](config/models.py), [docs/EXTENSIONS.md](docs/EXTENSIONS.md) |
 | JWT auth | [src/security/auth.py](src/security/auth.py) |
 | Production security middleware | [src/security/middleware.py](src/security/middleware.py), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Authorization policies | [src/policies/](src/policies), [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) |
 | FastAPI policy dependencies | [src/policies/dependencies.py](src/policies/dependencies.py) |
 | API error envelope and request IDs | [src/api/errors.py](src/api/errors.py), [docs/API_ERRORS.md](docs/API_ERRORS.md) |
+| Production preflight and cutover gates | [src/operations/preflight.py](src/operations/preflight.py), [scripts/preflight.py](scripts/preflight.py), [docs/PREFLIGHT.md](docs/PREFLIGHT.md) |
 | Test commands and markers | [Makefile](Makefile), [pyproject.toml](pyproject.toml) |
 | Bootstrap checks | [scripts/doctor.py](scripts/doctor.py), [Makefile](Makefile) |
 | Security automation | [Makefile](Makefile), [.github/dependabot.yml](.github/dependabot.yml), [.github/workflows/security.yml](.github/workflows/security.yml) |

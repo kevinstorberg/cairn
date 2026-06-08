@@ -51,6 +51,15 @@ class FrontendConfig(BaseModel):
     spa_fallback: bool = True
 
 
+class ExtensionAppConfig(BaseModel):
+    import_path: str
+
+
+class ExtensionsConfig(BaseModel):
+    enabled: list[str] = Field(default_factory=list)
+    apps: dict[str, ExtensionAppConfig] = Field(default_factory=dict)
+
+
 class SecurityHeadersConfig(BaseModel):
     enabled: bool = True
     content_type_options: str = "nosniff"
@@ -90,6 +99,7 @@ class DefaultConfig(BaseModel):
     jobs: JobsConfig = Field(default_factory=JobsConfig)
     admin_debug: AdminDebugConfig = Field(default_factory=AdminDebugConfig)
     frontend: FrontendConfig = Field(default_factory=FrontendConfig)
+    extensions: ExtensionsConfig = Field(default_factory=ExtensionsConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 

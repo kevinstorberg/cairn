@@ -256,6 +256,15 @@ def test_local_security_tools_are_poetry_dev_dependencies():
 
 
 @pytest.mark.unit
+def test_pinecone_optional_group_uses_modern_package():
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    pinecone_dependencies = pyproject["tool"]["poetry"]["group"]["pinecone"]["dependencies"]
+
+    assert "pinecone" in pinecone_dependencies
+    assert "pinecone-client" not in pinecone_dependencies
+
+
+@pytest.mark.unit
 def test_readme_links_repository_service_and_graph_runtime_docs():
     readme = (Path(__file__).parents[1] / "README.md").read_text()
 
@@ -269,8 +278,15 @@ def test_readme_links_repository_service_and_graph_runtime_docs():
     assert "src/diagnostics/" in readme
     assert "lib/cairn/generator" in readme
     assert "docs/FRONTEND.md" in readme
+    assert "docs/EXTENSIONS.md" in readme
+    assert "docs/PREFLIGHT.md" in readme
     assert "frontend/src/shared/api/" in readme
+    assert "frontend/src/App.tsx" in readme
+    assert "frontend/vite.config.ts" in readme
     assert "src/frontend/static.py" in readme
+    assert "src/extensions/" in readme
+    assert "src/operations/preflight.py" in readme
+    assert "scripts/preflight.py" in readme
     assert "build_config_summary_graph()" in readme
 
 
@@ -300,10 +316,42 @@ def test_frontend_docs_reference_source_of_truth_modules():
     docs = (Path(__file__).parents[1] / "docs" / "FRONTEND.md").read_text()
 
     assert "frontend/package.json" in docs
+    assert "frontend/src/App.tsx" in docs
     assert "frontend/src/shared/config/" in docs
     assert "frontend/src/shared/api/" in docs
     assert "frontend/src/features/registry.ts" in docs
+    assert "frontend/vite.config.ts" in docs
+    assert "route-level lazy loading" in docs
+    assert "Vite chunk warnings" in docs
     assert "src/frontend/static.py" in docs
+
+
+@pytest.mark.unit
+def test_extensions_docs_reference_source_of_truth_modules():
+    docs = (Path(__file__).parents[1] / "docs" / "EXTENSIONS.md").read_text()
+
+    assert "config/models.py" in docs
+    assert "config/default.yaml" in docs
+    assert "src/extensions/lazy.py" in docs
+    assert "src/extensions/registry.py" in docs
+    assert "EXTENSIONS_ENABLED" in docs
+
+
+@pytest.mark.unit
+def test_preflight_docs_reference_source_of_truth_modules():
+    docs = (Path(__file__).parents[1] / "docs" / "PREFLIGHT.md").read_text()
+
+    assert "src/operations/preflight.py" in docs
+    assert "scripts/preflight.py" in docs
+    assert "PRODUCTION_DATABASE_URL_READONLY" in docs
+    assert "--write-cutover" in docs
+
+
+@pytest.mark.unit
+def test_frontend_vite_config_has_bundle_review_threshold():
+    vite_config = (Path(__file__).parents[1] / "frontend" / "vite.config.ts").read_text()
+
+    assert "chunkSizeWarningLimit" in vite_config
 
 
 @pytest.mark.unit
@@ -327,6 +375,7 @@ def test_deployment_docs_describe_production_security_controls():
     assert "config/models.py" in deployment
     assert "request body size limits" in deployment
     assert "edge or WAF rate limiting" in deployment
+    assert "PREFLIGHT.md" in deployment
 
 
 @pytest.mark.unit

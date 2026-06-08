@@ -119,6 +119,9 @@ Before production migrations:
 - Avoid long blocking operations on large tables.
 - Test downgrade or roll-forward recovery.
 
+Use [PREFLIGHT.md](PREFLIGHT.md) for generic migration-head, row-count, and
+write-cutover gate checks before switching production traffic.
+
 ## Health Checks
 
 The template ships a basic health endpoint at `/health`. Keep it cheap and

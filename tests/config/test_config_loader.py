@@ -62,6 +62,8 @@ class TestLoadDefaultConfig:
         assert config.frontend.static_dir == "frontend/dist"
         assert config.frontend.mount_path == "/ui"
         assert config.frontend.spa_fallback is True
+        assert config.extensions.enabled == []
+        assert config.extensions.apps == {}
 
     def test_caching_returns_same_instance(self):
         from config.loader import load_default_config
@@ -118,6 +120,7 @@ class TestSettings:
             "REDIS_URL",
             "REDIS_PORT",
             "DOCUMENTDB_URI",
+            "EXTENSIONS_ENABLED",
             "TRUSTED_HOSTS",
             "SECURE_HEADERS_HSTS_ENABLED",
         ):
@@ -132,6 +135,7 @@ class TestSettings:
         assert s.REDIS_URL == "redis://localhost:6379/0"
         assert s.REDIS_PORT == 6379
         assert s.DOCUMENTDB_URI == ""
+        assert s.EXTENSIONS_ENABLED == ""
         assert s.TRUSTED_HOSTS == ""
         assert s.SECURE_HEADERS_HSTS_ENABLED is False
 

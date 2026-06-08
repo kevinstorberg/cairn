@@ -70,7 +70,7 @@ redis = "^5.0.0"
 optional = true
 
 [tool.poetry.group.pinecone.dependencies]
-pinecone-client = "^3.0.0"
+pinecone = ">=7.0.0"
 
 [tool.poetry.group.pgvector]
 optional = true
