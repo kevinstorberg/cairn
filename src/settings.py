@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     PINECONE_NAMESPACE: str = ""
 
     DOCUMENTDB_URI: str = ""
+    EXTENSIONS_ENABLED: str = ""
 
     model_config = {"env_file": [str(_env_default), str(_env_file)], "env_file_encoding": "utf-8", "extra": "ignore"}
 

@@ -8,6 +8,13 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from config.loader import load_default_config
 from src.api.errors import RequestIDMiddleware, register_error_handlers
 from src.diagnostics.router import create_diagnostics_router
+from src.extensions.registry import (
+    include_extension_routes,
+    load_enabled_extensions,
+    mount_extension_static,
+    shutdown_extensions,
+    startup_extensions,
+)
 from src.frontend.static import mount_frontend
 from src.graphs.endpoints import create_graph_router
 from src.jobs.router import create_jobs_router
@@ -33,31 +40,35 @@ async def lifespan(app: FastAPI):
         app.state.config = load_default_config()
     if not hasattr(app.state, "settings"):
         app.state.settings = get_settings()
+    if not hasattr(app.state, "extension_apps"):
+        app.state.extension_apps = load_enabled_extensions(app.state.config.extensions, app.state.settings)
     app.state.memory_backend = get_backend()
     app.state.cache_backend = get_cache_backend()
 
     # Trigger service auto-registration
     import src.services  # noqa: F401
 
-    await start_job_runtime(app)
-    logger.info("App startup complete")
+    try:
+        await start_job_runtime(app)
+        await startup_extensions(app, app.state.extension_apps)
+        logger.info("App startup complete")
 
-    yield
+        yield
+    finally:
+        await shutdown_extensions(app, getattr(app.state, "extension_apps", []))
+        await shutdown_job_runtime(app)
 
-    # Shutdown
-    await shutdown_job_runtime(app)
+        if hasattr(app.state, "memory_backend"):
+            backend = app.state.memory_backend
+            if hasattr(backend, "close"):
+                await backend.close()
 
-    if hasattr(app.state, "memory_backend"):
-        backend = app.state.memory_backend
-        if hasattr(backend, "close"):
-            await backend.close()
+        from db.connection import dispose_engine
+        from src.graphs.checkpointing import reset_checkpointers
 
-    from db.connection import dispose_engine
-    from src.graphs.checkpointing import reset_checkpointers
-
-    await dispose_engine()
-    reset_checkpointers()
-    logger.info("App shutdown complete")
+        await dispose_engine()
+        reset_checkpointers()
+        logger.info("App shutdown complete")
 
 
 def create_app() -> FastAPI:
@@ -71,6 +82,7 @@ def create_app() -> FastAPI:
     application = FastAPI(title="Cairn", version=_VERSION, lifespan=lifespan)
     application.state.config = config
     application.state.settings = settings
+    application.state.extension_apps = load_enabled_extensions(config.extensions, settings)
     register_error_handlers(application)
 
     application.add_middleware(
@@ -105,9 +117,11 @@ def create_app() -> FastAPI:
     application.include_router(create_graph_router())
     application.include_router(create_jobs_router())
     include_registered_routers(application)
+    include_extension_routes(application, application.state.extension_apps)
     if config.admin_debug.enabled:
         application.include_router(create_diagnostics_router(config=config, settings=settings))
     mount_frontend(application, config.frontend)
+    mount_extension_static(application, application.state.extension_apps)
     application.include_router(ws_router)
     return application
 

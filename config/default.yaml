@@ -39,6 +39,10 @@ frontend:
   mount_path: /ui
   spa_fallback: true
 
+extensions:
+  enabled: []
+  apps: {}
+
 security:
   cors_origins:
     - "*"

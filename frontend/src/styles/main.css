@@ -292,6 +292,11 @@ input {
   color: var(--color-muted);
 }
 
+.loading-state {
+  color: var(--color-muted);
+  padding: 16px 0;
+}
+
 .table-wrap {
   width: 100%;
   overflow-x: auto;
