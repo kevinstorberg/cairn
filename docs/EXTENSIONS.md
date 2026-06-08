@@ -24,4 +24,3 @@ Source of truth:
 
 Disabled extensions must remain import-free. Enabled extensions fail startup if
 their import path or lifecycle hooks fail.
-

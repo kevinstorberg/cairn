@@ -24,4 +24,3 @@ Source of truth:
 
 The preflight helper never mutates data. It reports migration versions, selected
 row counts, explicit cutover-gate failures, and a JSON-safe status.
-
