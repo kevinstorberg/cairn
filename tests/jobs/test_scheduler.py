@@ -59,6 +59,10 @@ class TestJobScheduler:
         scheduler.register(job2, trigger="interval", seconds=120)
         assert len(scheduler.registered_jobs) == 2
 
+    def test_remove_absent_job_is_noop(self):
+        scheduler = JobScheduler()
+        scheduler.remove_job("missing")
+
     @pytest.mark.asyncio
     async def test_start_runs_registered_interval_job(self):
         scheduler = JobScheduler()

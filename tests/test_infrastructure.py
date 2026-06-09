@@ -4,6 +4,12 @@ from pathlib import Path
 import pytest
 import yaml
 
+REPO_ROOT = Path(__file__).parents[1]
+
+
+def _workflow(name: str) -> dict:
+    return yaml.safe_load((REPO_ROOT / ".github" / "workflows" / name).read_text())
+
 
 @pytest.mark.unit
 def test_framework_loads():
@@ -48,6 +54,20 @@ def test_test_database_url_uses_settings(monkeypatch):
             get_test_database_url()
             == "postgresql+asyncpg://fixture_user:fixture_password@127.0.0.1:55432/fixture_test_db"
         )
+    finally:
+        reset_settings()
+
+
+@pytest.mark.unit
+def test_pytest_conftest_forces_test_environment_before_settings_import():
+    import os
+
+    from src.settings import get_settings, reset_settings
+
+    reset_settings()
+    try:
+        assert os.environ["APP_ENV"] == "test"
+        assert get_settings().APP_ENV == "test"
     finally:
         reset_settings()
 
@@ -130,8 +150,7 @@ def test_dockerignore_excludes_local_state_from_production_context():
 
 @pytest.mark.unit
 def test_ci_enforces_coverage_threshold():
-    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "test.yml"
-    workflow = yaml.safe_load(workflow_path.read_text())
+    workflow = _workflow("test.yml")
     steps = workflow["jobs"]["test"]["steps"]
     test_step = next(step for step in steps if step.get("name") == "Run tests with coverage")
 
@@ -139,9 +158,17 @@ def test_ci_enforces_coverage_threshold():
 
 
 @pytest.mark.unit
+def test_ci_workflows_run_on_push_and_pull_request_for_all_branches():
+    for workflow_name in ("test.yml", "pre-commit.yml", "security.yml"):
+        triggers = _workflow(workflow_name)["on"]
+
+        assert triggers["push"] == {}
+        assert triggers["pull_request"] == {}
+
+
+@pytest.mark.unit
 def test_ci_runs_frontend_checks():
-    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "test.yml"
-    workflow = yaml.safe_load(workflow_path.read_text())
+    workflow = _workflow("test.yml")
     steps = workflow["jobs"]["test"]["steps"]
     commands = [step.get("run", "") for step in steps]
     setup_node = next(step for step in steps if step.get("uses") == "actions/setup-node@v4")
@@ -176,8 +203,7 @@ def test_dependabot_updates_python_dependencies_and_actions():
 
 @pytest.mark.unit
 def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
-    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "security.yml"
-    workflow = yaml.safe_load(workflow_path.read_text())
+    workflow = _workflow("security.yml")
     jobs = workflow["jobs"]
 
     assert {"lockfile-freshness", "dependency-vulnerability-scan", "secret-scan"} <= set(jobs)
@@ -210,8 +236,7 @@ def test_pre_commit_checks_for_private_keys():
 
 @pytest.mark.unit
 def test_pre_commit_workflow_uses_poetry_managed_tooling():
-    workflow_path = Path(__file__).parents[1] / ".github" / "workflows" / "pre-commit.yml"
-    workflow = yaml.safe_load(workflow_path.read_text())
+    workflow = _workflow("pre-commit.yml")
     commands = [step.get("run", "") for step in workflow["jobs"]["pre-commit"]["steps"]]
 
     assert "poetry install --no-interaction" in commands
@@ -317,6 +342,7 @@ def test_frontend_docs_reference_source_of_truth_modules():
     docs = (Path(__file__).parents[1] / "docs" / "FRONTEND.md").read_text()
 
     assert "frontend/package.json" in docs
+    assert "frontend/scripts/bundle-report.mjs" in docs
     assert "frontend/src/App.tsx" in docs
     assert "frontend/src/shared/config/" in docs
     assert "frontend/src/shared/api/" in docs
@@ -351,8 +377,13 @@ def test_preflight_docs_reference_source_of_truth_modules():
 @pytest.mark.unit
 def test_frontend_vite_config_has_bundle_review_threshold():
     vite_config = (Path(__file__).parents[1] / "frontend" / "vite.config.ts").read_text()
+    package = (Path(__file__).parents[1] / "frontend" / "package.json").read_text()
 
     assert "chunkSizeWarningLimit" in vite_config
+    assert "manualChunks" in vite_config
+    assert "bundle:report" in package
+    assert "bundle-check" in package
+    assert "npm run bundle-check" in package
 
 
 @pytest.mark.unit
@@ -363,6 +394,9 @@ def test_jobs_docs_reference_runtime_source_of_truth():
     assert "src/jobs/runner.py" in jobs_doc
     assert "src/jobs/stores.py" in jobs_doc
     assert "src/jobs/locks.py" in jobs_doc
+    assert "sync_namespace" in jobs_doc
+    assert "JobDefinition.metadata" in jobs_doc
+    assert "JobContext.metadata" in jobs_doc
     assert "GET /jobs/health" in jobs_doc
 
 
