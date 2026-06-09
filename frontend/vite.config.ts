@@ -18,6 +18,16 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            if (id.includes("react") || id.includes("scheduler")) return "react";
+            if (id.includes("lucide-react")) return "icons";
+            return undefined;
+          },
+        },
+      },
     },
     test: {
       environment: "jsdom",

@@ -13,6 +13,7 @@ Source of truth:
 - Feature discovery: [../frontend/src/features/registry.ts](../frontend/src/features/registry.ts)
 - Generated CRUD feature shell: [../frontend/src/features/resourceCrud.tsx](../frontend/src/features/resourceCrud.tsx)
 - Vite build and bundle warnings: [../frontend/vite.config.ts](../frontend/vite.config.ts)
+- Bundle report and budgets: [../frontend/scripts/bundle-report.mjs](../frontend/scripts/bundle-report.mjs)
 - Optional FastAPI static mount: [../src/frontend/static.py](../src/frontend/static.py)
 - Backend frontend config: [../config/default.yaml](../config/default.yaml), [../config/models.py](../config/models.py)
 - Local command entrypoints: [../Makefile](../Makefile), [../docker-compose.yml](../docker-compose.yml)
@@ -33,6 +34,8 @@ Source of truth:
   as the app-shell convention.
 - Review Vite chunk warnings during frontend builds. Tune split points in route
   modules before raising the generic warning threshold in `frontend/vite.config.ts`.
+- Use the bundle report script to inspect large chunks; keep budget values in
+  `frontend/scripts/bundle-report.mjs` rather than copying them into docs.
 
 ## Generation
 

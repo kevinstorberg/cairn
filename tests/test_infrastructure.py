@@ -53,6 +53,20 @@ def test_test_database_url_uses_settings(monkeypatch):
 
 
 @pytest.mark.unit
+def test_pytest_conftest_forces_test_environment_before_settings_import():
+    import os
+
+    from src.settings import get_settings, reset_settings
+
+    reset_settings()
+    try:
+        assert os.environ["APP_ENV"] == "test"
+        assert get_settings().APP_ENV == "test"
+    finally:
+        reset_settings()
+
+
+@pytest.mark.unit
 def test_docker_compose_database_port_is_configurable():
     compose_path = Path(__file__).parents[1] / "docker-compose.yml"
     compose = yaml.safe_load(compose_path.read_text())
@@ -317,6 +331,7 @@ def test_frontend_docs_reference_source_of_truth_modules():
     docs = (Path(__file__).parents[1] / "docs" / "FRONTEND.md").read_text()
 
     assert "frontend/package.json" in docs
+    assert "frontend/scripts/bundle-report.mjs" in docs
     assert "frontend/src/App.tsx" in docs
     assert "frontend/src/shared/config/" in docs
     assert "frontend/src/shared/api/" in docs
@@ -351,8 +366,13 @@ def test_preflight_docs_reference_source_of_truth_modules():
 @pytest.mark.unit
 def test_frontend_vite_config_has_bundle_review_threshold():
     vite_config = (Path(__file__).parents[1] / "frontend" / "vite.config.ts").read_text()
+    package = (Path(__file__).parents[1] / "frontend" / "package.json").read_text()
 
     assert "chunkSizeWarningLimit" in vite_config
+    assert "manualChunks" in vite_config
+    assert "bundle:report" in package
+    assert "bundle-check" in package
+    assert "npm run bundle-check" in package
 
 
 @pytest.mark.unit
@@ -363,6 +383,9 @@ def test_jobs_docs_reference_runtime_source_of_truth():
     assert "src/jobs/runner.py" in jobs_doc
     assert "src/jobs/stores.py" in jobs_doc
     assert "src/jobs/locks.py" in jobs_doc
+    assert "sync_namespace" in jobs_doc
+    assert "JobDefinition.metadata" in jobs_doc
+    assert "JobContext.metadata" in jobs_doc
     assert "GET /jobs/health" in jobs_doc
 
 

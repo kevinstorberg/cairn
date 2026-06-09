@@ -45,6 +45,18 @@ def build_refresh_summaries_job():
 Existing direct `JobScheduler.register(job_instance, ...)` remains available
 for small local scripts and tests, but app runtime jobs should use definitions.
 
+## Dynamic Definitions
+
+Apps that store schedules in a database can refresh runtime jobs without a
+second scheduler. Build `JobDefinition` objects from app data, then call
+`app.state.job_runtime.sync_namespace("my_app", definitions)`. The namespace
+keeps dynamic app jobs separate from auto-discovered template jobs and removes
+stale definitions only within that namespace.
+
+Use `JobDefinition.metadata` for app-specific IDs or labels needed at execution
+time. `JobRunner` merges definition metadata into `JobContext.metadata` with
+`job_name`, `source`, and `attempt`, so job classes do not need global state.
+
 ## Runtime Behavior
 
 `JobRunner` is the only execution path for scheduled and manually triggered

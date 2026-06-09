@@ -13,11 +13,15 @@ import src.app  # noqa: F401
 
 blocked = [
     "boto3",
+    "langchain_aws",
     "langchain_anthropic",
     "langchain_openai",
     "langchain_pinecone",
+    "langgraph.checkpoint.postgres",
     "pgvector",
     "pinecone",
+    "pymongo",
+    "redis",
 ]
 print(json.dumps([module for module in blocked if module in sys.modules]))
 """

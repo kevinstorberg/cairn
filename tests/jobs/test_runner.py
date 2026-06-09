@@ -29,6 +29,14 @@ class RunnerContextJob(BaseJob):
         RunnerContextJob.saw_context = isinstance(context, JobContext)
 
 
+class RunnerMetadataJob(BaseJob):
+    name = "runner_metadata"
+    metadata = {}
+
+    async def execute(self, context):
+        RunnerMetadataJob.metadata = dict(context.metadata)
+
+
 class RunnerFailThenPassJob(BaseJob):
     name = "runner_fail_then_pass"
     calls = 0
@@ -61,6 +69,10 @@ def build_runner_context_job() -> BaseJob:
     return RunnerContextJob()
 
 
+def build_runner_metadata_job() -> BaseJob:
+    return RunnerMetadataJob()
+
+
 def build_runner_fail_then_pass_job() -> BaseJob:
     return RunnerFailThenPassJob()
 
@@ -73,13 +85,14 @@ def build_runner_slow_job() -> BaseJob:
     return RunnerSlowJob()
 
 
-def _runner(lock_backend=None):
+def _runner(lock_backend=None, *, metadata: dict | None = None):
     store = InMemoryJobStatusStore()
     runner = JobRunner(
         context=JobContext(
             config=DefaultConfig(),
             settings=Settings(_env_file=None),
             unit_of_work_factory=UnitOfWorkFactory(),
+            metadata=metadata or {},
         ),
         status_store=store,
         lock_backend=lock_backend or InMemoryJobLockBackend(),
@@ -111,6 +124,28 @@ async def test_runner_passes_context_to_context_aware_job():
     await runner.run(definition)
 
     assert RunnerContextJob.saw_context is True
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_runner_passes_merged_metadata_to_context_aware_job():
+    runner, _store = _runner(metadata={"runtime": "template"})
+    RunnerMetadataJob.metadata = {}
+    definition = JobDefinition(
+        name="runner_metadata",
+        factory=import_path_for(build_runner_metadata_job),
+        metadata={"resource_id": "project-123"},
+    )
+
+    await runner.run(definition, source="manual")
+
+    assert RunnerMetadataJob.metadata == {
+        "runtime": "template",
+        "resource_id": "project-123",
+        "job_name": "runner_metadata",
+        "source": "manual",
+        "attempt": 1,
+    }
 
 
 @pytest.mark.unit
