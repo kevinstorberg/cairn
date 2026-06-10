@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from lib.cairn.initializer import ProjectIdentity, ProjectInitializer, copy_template
+from lib.cairn.initializer import LocalRuntimeDefaults, ProjectIdentity, ProjectInitializer, copy_template
 from lib.cairn.paths import get_repo_root
 from scripts.base import BaseScript
 
@@ -28,11 +28,18 @@ class InitProjectScript(BaseScript):
                 description=args.description,
                 db_prefix=args.db_prefix,
             )
+            runtime_defaults = LocalRuntimeDefaults(
+                app_port=args.app_port,
+                frontend_port=args.frontend_port,
+                postgres_port=args.postgres_port,
+                redis_port=args.redis_port,
+            )
             logo_path = args.logo_path.resolve() if args.logo_path else None
             if args.command == "init":
                 return self._init_repo(
                     repo_root=args.repo_root or get_repo_root(__file__),
                     identity=identity,
+                    runtime_defaults=runtime_defaults,
                     dry_run=args.dry_run,
                     force=args.force,
                     keep_initializer=args.keep_initializer,
@@ -48,6 +55,7 @@ class InitProjectScript(BaseScript):
                 return self._init_repo(
                     repo_root=target if not args.dry_run else source_root,
                     identity=identity,
+                    runtime_defaults=runtime_defaults,
                     dry_run=args.dry_run,
                     force=args.force,
                     keep_initializer=args.keep_initializer,
@@ -63,13 +71,20 @@ class InitProjectScript(BaseScript):
         *,
         repo_root: Path,
         identity: ProjectIdentity,
+        runtime_defaults: LocalRuntimeDefaults,
         dry_run: bool,
         force: bool,
         keep_initializer: bool,
         logo_path: Path | None,
     ) -> int:
         initializer = ProjectInitializer(repo_root)
-        plan = initializer.plan(identity, force=force, keep_initializer=keep_initializer, logo_path=logo_path)
+        plan = initializer.plan(
+            identity,
+            force=force,
+            keep_initializer=keep_initializer,
+            logo_path=logo_path,
+            runtime_defaults=runtime_defaults,
+        )
         label = "Planned" if dry_run else "Applied"
         for line in plan.summary_lines():
             if not dry_run and line.startswith("forbidden-current:"):
@@ -80,6 +95,10 @@ class InitProjectScript(BaseScript):
         findings = initializer.apply(plan, logo_path=logo_path, keep_initializer=keep_initializer)
         print(f"Initialized {identity.project_name} in {repo_root}")
         print(f"Forbidden scan passed with {len(findings)} findings")
+        print("Next steps:")
+        print("  1. poetry install")
+        print("  2. poetry run alembic upgrade head")
+        print(f"  3. poetry run uvicorn src.app:app --host 127.0.0.1 --port {runtime_defaults.app_port}")
         return 0
 
     @staticmethod
@@ -90,6 +109,10 @@ class InitProjectScript(BaseScript):
         parser.add_argument("--console-command", default=None, help="console command name")
         parser.add_argument("--description", default=None, help="project description")
         parser.add_argument("--db-prefix", default=None, help="database name/user prefix")
+        parser.add_argument("--app-port", type=int, default=8000, help="local API port")
+        parser.add_argument("--frontend-port", type=int, default=5173, help="local Vite frontend port")
+        parser.add_argument("--postgres-port", type=int, default=5432, help="local Postgres host port")
+        parser.add_argument("--redis-port", type=int, default=6379, help="local Redis host port")
         parser.add_argument("--logo-path", type=Path, default=None, help="replacement SVG logo path")
         parser.add_argument("--dry-run", action="store_true", help="print planned changes without writing")
         parser.add_argument(

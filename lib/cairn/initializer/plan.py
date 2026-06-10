@@ -4,7 +4,16 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from lib.cairn.initializer.manifest import TEMPLATE_DOCS, Replacement, cli_for, readme_for, replacements_for
+from lib.cairn.initializer.manifest import (
+    LocalRuntimeDefaults,
+    Replacement,
+    cli_for,
+    development_env_for,
+    frontend_env_local_for,
+    readme_for,
+    replacements_for,
+    test_env_for,
+)
 from lib.cairn.initializer.naming import ProjectIdentity
 from lib.cairn.initializer.scanner import (
     ForbiddenFinding,
@@ -70,11 +79,18 @@ class ProjectInitializer:
         force: bool = False,
         keep_initializer: bool = False,
         logo_path: Path | None = None,
+        runtime_defaults: LocalRuntimeDefaults | None = None,
     ) -> InitPlan:
         self._validate_can_initialize(identity, force=force)
+        runtime = runtime_defaults or LocalRuntimeDefaults()
 
         replacements = self._planned_replacements(identity)
-        writes = [PlannedWrite(Path("README.md"), readme_for(identity, has_logo=logo_path is not None))]
+        writes = [
+            PlannedWrite(Path("README.md"), readme_for(identity, has_logo=logo_path is not None, runtime=runtime)),
+            PlannedWrite(Path(".env.development"), development_env_for(identity, runtime)),
+            PlannedWrite(Path(".env.test"), test_env_for(identity, runtime)),
+            PlannedWrite(Path("frontend") / ".env.local", frontend_env_local_for(identity, runtime)),
+        ]
         if not keep_initializer:
             writes.append(PlannedWrite(Path("scripts") / "cli.py", cli_for(identity)))
         deletes = self._planned_deletes(logo_path=logo_path, keep_initializer=keep_initializer)
@@ -137,6 +153,7 @@ class ProjectInitializer:
                 path
                 for path in iter_text_files(self.repo_root)
                 if path.parts[:3] == ("lib", plan.identity.core_package, "initializer")
+                or path.parts[:2] == ("tests", "initializer")
             )
         findings = scan_forbidden_tokens(self.repo_root, allow_paths=allow_paths)
         if findings:
@@ -171,7 +188,7 @@ class ProjectInitializer:
         replacements = replacements_for(identity)
         planned: list[PlannedReplacement] = []
         for path in iter_text_files(self.repo_root):
-            if path in TEMPLATE_DOCS or path == Path("README.md"):
+            if path == Path("README.md"):
                 continue
             content = read_text_if_possible(self.repo_root / path)
             if content is None:
@@ -182,7 +199,7 @@ class ProjectInitializer:
         return tuple(planned)
 
     def _planned_deletes(self, *, logo_path: Path | None, keep_initializer: bool) -> tuple[Path, ...]:
-        deletes = [path for path in TEMPLATE_DOCS if (self.repo_root / path).exists()]
+        deletes: list[Path] = []
         init_script = Path("scripts") / "init_project.py"
         if not keep_initializer and (self.repo_root / init_script).exists():
             deletes.append(init_script)

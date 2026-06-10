@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from lib.cairn.initializer.naming import ProjectIdentity
 
@@ -12,25 +11,22 @@ class Replacement:
     new: str
 
 
-TEMPLATE_DOCS = (
-    Path("db") / "PATTERNS.md",
-    Path("docs") / "ADMIN_DEBUG.md",
-    Path("docs") / "API_ERRORS.md",
-    Path("docs") / "AUTHORIZATION.md",
-    Path("docs") / "BACKENDS.md",
-    Path("docs") / "DEPLOYMENT.md",
-    Path("docs") / "DOCTOR.md",
-    Path("docs") / "EXTENSIONS.md",
-    Path("docs") / "FRONTEND.md",
-    Path("docs") / "GENERATOR.md",
-    Path("docs") / "GRAPHS.md",
-    Path("docs") / "JOBS.md",
-    Path("docs") / "PREFLIGHT.md",
-    Path("docs") / "REPOSITORIES_SERVICES.md",
-    Path("docs") / "SECURITY_AUTOMATION.md",
-    Path("docs") / "TESTING.md",
-    Path("docs") / "TOOLS.md",
-)
+@dataclass(frozen=True)
+class LocalRuntimeDefaults:
+    app_port: int = 8000
+    frontend_port: int = 5173
+    postgres_port: int = 5432
+    redis_port: int = 6379
+
+    def __post_init__(self) -> None:
+        for field_name, value in (
+            ("app_port", self.app_port),
+            ("frontend_port", self.frontend_port),
+            ("postgres_port", self.postgres_port),
+            ("redis_port", self.redis_port),
+        ):
+            if not 1 <= value <= 65535:
+                raise ValueError(f"{field_name} must be between 1 and 65535")
 
 
 def replacements_for(identity: ProjectIdentity) -> tuple[Replacement, ...]:
@@ -70,6 +66,24 @@ def replacements_for(identity: ProjectIdentity) -> tuple[Replacement, ...]:
         Replacement("FastAPI template", f"{identity.project_name} application"),
         Replacement("template users", f"{identity.project_name} developers"),
         Replacement("TEMPLATE INFRASTRUCTURE: ", ""),
+        Replacement("TEMPLATE INFRASTRUCTURE", f"{identity.project_name} infrastructure"),
+        Replacement("TEMPLATE EXAMPLE", f"{identity.project_name} example"),
+        Replacement("template's own tests", f"{identity.project_name}'s tests"),
+        Replacement("template's example routes", f"{identity.project_name}'s application routes"),
+        Replacement("template itself", identity.project_name),
+        Replacement("template WebSocket route", "application WebSocket route"),
+        Replacement("template default", "generated default"),
+        Replacement("template source", "application source"),
+        Replacement("clone this template", f"clone {identity.project_name}"),
+        Replacement("When you clone this template", f"When you develop {identity.project_name}"),
+        Replacement("Template fixture", "Application fixture"),
+        Replacement("Template utility", "Shared utility"),
+        Replacement("Template infrastructure", "Application infrastructure"),
+        Replacement("template utilities", "application utilities"),
+        Replacement("template tests", "application tests"),
+        Replacement("template fixtures", "application fixtures"),
+        Replacement("unused by the template", "available to the application"),
+        Replacement("unused by default in the template", "available by default in the application"),
         Replacement("Cairn Logo", f"{identity.project_name} Logo"),
         Replacement("Cairn", identity.project_name),
         Replacement("APP_NAME=cairn", f"APP_NAME={identity.repo_name}"),
@@ -139,7 +153,23 @@ def replacements_for(identity: ProjectIdentity) -> tuple[Replacement, ...]:
     )
 
 
-def readme_for(identity: ProjectIdentity, *, has_logo: bool) -> str:
+def development_env_for(identity: ProjectIdentity, runtime: LocalRuntimeDefaults) -> str:
+    return _env_for(identity, runtime, app_env="development")
+
+
+def test_env_for(identity: ProjectIdentity, runtime: LocalRuntimeDefaults) -> str:
+    return _env_for(identity, runtime, app_env="test")
+
+
+def frontend_env_local_for(identity: ProjectIdentity, runtime: LocalRuntimeDefaults) -> str:
+    return (
+        f"VITE_API_BASE_URL=http://127.0.0.1:{runtime.app_port}\n"
+        f"VITE_APP_NAME={identity.project_name}\n"
+        "VITE_BASE_PATH=/ui/\n"
+    )
+
+
+def readme_for(identity: ProjectIdentity, *, has_logo: bool, runtime: LocalRuntimeDefaults) -> str:
     logo = (
         f'<img src="assets/static/logo.svg" alt="{identity.project_name}" width="120" align="left" '
         'style="margin-right: 20px; margin-bottom: 10px;"/>\n\n'
@@ -150,11 +180,37 @@ def readme_for(identity: ProjectIdentity, *, has_logo: bool) -> str:
         f"{logo}# {identity.repo_name}\n\n"
         f"{identity.description}\n\n"
         "## Quick Start\n\n"
+        "Run `poetry install` first. Poetry creates the project virtual environment on first use, "
+        "so install dependencies before running the renamed console command or Make targets.\n\n"
         "```sh\n"
         "poetry install\n"
+        "npm --prefix frontend ci\n"
+        "docker compose --env-file .env.development up -d db redis\n"
         "poetry run alembic upgrade head\n"
-        "poetry run uvicorn src.app:app --reload\n"
+        f"poetry run uvicorn src.app:app --host 127.0.0.1 --port {runtime.app_port}\n"
+        f"npm --prefix frontend run dev -- --host 127.0.0.1 --port {runtime.frontend_port}\n"
         "```\n"
+        "\n"
+        "Generate a resource after dependencies are installed:\n\n"
+        "```sh\n"
+        f"{identity.console_command} generate resource project name:string\n"
+        "```\n"
+        "\n"
+        "If you need non-default local ports, pass them to `init` or `new` with "
+        "`--app-port`, `--frontend-port`, `--postgres-port`, and `--redis-port` so "
+        "`.env.development`, `.env.test`, and `frontend/.env.local` stay in sync.\n\n"
+        "## Source Of Truth\n\n"
+        f"- Application command: `{identity.console_command}` in `pyproject.toml` and `scripts/cli.py`\n"
+        f"- Python utility namespace: `{identity.core_path}/`\n"
+        "- Configuration defaults: `config/default.yaml` and `src/settings.py`\n"
+        "- Local runtime env: `.env.development` and `.env.test`\n"
+        "- Frontend runtime env: `frontend/.env.example` and `frontend/.env.local`\n"
+        "- Resource generator: `scripts/generate.py`, `docs/GENERATOR.md`, and the generator package under the utility namespace\n"
+        "- Database conventions: `db/`, `docs/REPOSITORIES_SERVICES.md`, and `db/PATTERNS.md`\n"
+        "- API and error conventions: `src/api/errors.py`, `src/routers/`, and `docs/API_ERRORS.md`\n"
+        "- Authorization conventions: `src/policies/` and `docs/AUTHORIZATION.md`\n"
+        "- Jobs and diagnostics: `src/jobs/`, `src/diagnostics/`, `docs/JOBS.md`, and `docs/ADMIN_DEBUG.md`\n"
+        "- Frontend conventions: `frontend/package.json`, `frontend/src/shared/`, and `docs/FRONTEND.md`\n"
     )
 
 
@@ -173,4 +229,51 @@ def cli_for(identity: ProjectIdentity) -> str:
         '    raise ValueError(f"Unknown command: {args.command}")\n\n\n'
         'if __name__ == "__main__":\n'
         "    raise SystemExit(main())\n"
+    )
+
+
+def _env_for(identity: ProjectIdentity, runtime: LocalRuntimeDefaults, *, app_env: str) -> str:
+    return (
+        f"APP_ENV={app_env}\n"
+        f"APP_NAME={identity.repo_name}\n"
+        f"APP_PORT={runtime.app_port}\n"
+        "DEBUG_ERRORS=false\n"
+        "\n"
+        "POSTGRES_HOST=localhost\n"
+        "POSTGRES_IMAGE=pgvector/pgvector:pg16\n"
+        f"POSTGRES_PORT={runtime.postgres_port}\n"
+        f"POSTGRES_USER={identity.db_prefix}\n"
+        f"POSTGRES_PASSWORD={identity.db_prefix}\n"
+        f"POSTGRES_DB_DEVELOPMENT={identity.db_prefix}_dev\n"
+        f"POSTGRES_DB_TEST={identity.db_prefix}_test\n"
+        f"POSTGRES_DB_PRODUCTION={identity.db_prefix}_prod\n"
+        "\n"
+        "DATABASE_URL_DEVELOPMENT=\n"
+        "DATABASE_URL_TEST=\n"
+        "DATABASE_URL_PRODUCTION=\n"
+        "\n"
+        f"REDIS_URL=redis://localhost:{runtime.redis_port}/0\n"
+        f"REDIS_PORT={runtime.redis_port}\n"
+        "\n"
+        "ANTHROPIC_API_KEY=\n"
+        "OPENAI_API_KEY=\n"
+        "\n"
+        "SECRET_KEY=change-me-in-production-use-a-long-random-value\n"
+        "JWT_ALGORITHM=HS256\n"
+        "JWT_EXPIRATION_MINUTES=60\n"
+        "TRUSTED_HOSTS=\n"
+        "SECURE_HEADERS_HSTS_ENABLED=false\n"
+        "\n"
+        "AWS_REGION=us-east-1\n"
+        "AWS_ACCESS_KEY_ID=\n"
+        "AWS_SECRET_ACCESS_KEY=\n"
+        "S3_BUCKET=\n"
+        "\n"
+        "PINECONE_API_KEY=\n"
+        "PINECONE_INDEX_NAME=\n"
+        "PINECONE_NAMESPACE=\n"
+        "\n"
+        "DOCUMENTDB_URI=\n"
+        "\n"
+        "EXTENSIONS_ENABLED=\n"
     )

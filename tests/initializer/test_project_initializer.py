@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from lib.cairn.initializer import ProjectIdentity, ProjectInitializer, copy_template, scan_forbidden_tokens
+from lib.cairn.initializer import (
+    LocalRuntimeDefaults,
+    ProjectIdentity,
+    ProjectInitializer,
+    copy_template,
+    scan_forbidden_tokens,
+)
 from scripts.cli import main as cairn_main
 
 
@@ -18,8 +24,13 @@ def test_initializer_dry_run_reports_deterministic_plan_without_writing(tmp_path
     lines = plan.summary_lines()
 
     assert "replace: pyproject.toml" in lines
+    assert "replace: docs/GENERATOR.md" in lines
+    assert "replace: db/PATTERNS.md" in lines
     assert "write: README.md" in lines
-    assert "delete: docs/GENERATOR.md" in lines
+    assert "write: .env.development" in lines
+    assert "write: .env.test" in lines
+    assert "write: frontend/.env.local" in lines
+    assert "delete: docs/GENERATOR.md" not in lines
     assert "delete: assets/static/logo.svg" in lines
     assert "move: lib/cairn -> lib/agent_smith_core" in lines
     assert (repo / "lib" / "cairn").exists()
@@ -41,7 +52,8 @@ def test_initializer_rewrites_identity_and_removes_forbidden_branding(tmp_path):
     assert not (repo / "lib" / "agent_smith_core" / "initializer").exists()
     assert not (repo / "scripts" / "init_project.py").exists()
     assert not (repo / "tests" / "initializer").exists()
-    assert not (repo / "docs" / "GENERATOR.md").exists()
+    assert (repo / "docs" / "GENERATOR.md").exists()
+    assert (repo / "db" / "PATTERNS.md").exists()
     assert not (repo / "assets" / "static" / "logo.svg").exists()
     assert 'name = "agent-smith"' in (repo / "pyproject.toml").read_text()
     assert 'agent-smith = "scripts.cli:main"' in (repo / "pyproject.toml").read_text()
@@ -49,7 +61,41 @@ def test_initializer_rewrites_identity_and_removes_forbidden_branding(tmp_path):
     assert 'prog="agent-smith"' in (repo / "scripts" / "cli.py").read_text()
     assert "from lib.agent_smith_core.paths import get_repo_root" in (repo / "src" / "settings.py").read_text()
     assert '"app": "agent-smith"' in (repo / "src" / "routers" / "health.py").read_text()
+    assert "poetry install" in (repo / "README.md").read_text()
+    assert "agent-smith generate resource project name:string" in (repo / "README.md").read_text()
+    assert "docs/GENERATOR.md" in (repo / "README.md").read_text()
+    generator_doc = (repo / "docs" / "GENERATOR.md").read_text()
+    assert "The `agent-smith` console command scaffolds resources" in generator_doc
+    assert "lib/agent_smith_core/generator/" in generator_doc
+    assert "application source" in (repo / "db" / "PATTERNS.md").read_text()
     assert scan_forbidden_tokens(repo) == ()
+
+
+@pytest.mark.unit
+def test_initializer_writes_local_runtime_env_files(tmp_path):
+    repo = _minimal_template_repo(tmp_path)
+    identity = ProjectIdentity.from_inputs(project_name="Launch Pad")
+    runtime = LocalRuntimeDefaults(app_port=18111, frontend_port=15191, postgres_port=55441, redis_port=56391)
+
+    plan = ProjectInitializer(repo).plan(identity, runtime_defaults=runtime)
+    ProjectInitializer(repo).apply(plan)
+
+    development_env = (repo / ".env.development").read_text()
+    test_env = (repo / ".env.test").read_text()
+    frontend_env = (repo / "frontend" / ".env.local").read_text()
+
+    assert "APP_ENV=development" in development_env
+    assert "APP_ENV=test" in test_env
+    assert "APP_PORT=18111" in development_env
+    assert "APP_PORT=18111" in test_env
+    assert "POSTGRES_PORT=55441" in development_env
+    assert "POSTGRES_PORT=55441" in test_env
+    assert "POSTGRES_DB_TEST=launch_pad_test" in test_env
+    assert "REDIS_URL=redis://localhost:56391/0" in development_env
+    assert "REDIS_URL=redis://localhost:56391/0" in test_env
+    assert "VITE_API_BASE_URL=http://127.0.0.1:18111" in frontend_env
+    assert "VITE_APP_NAME=Launch Pad" in frontend_env
+    assert "VITE_BASE_PATH=/ui/" in frontend_env
 
 
 @pytest.mark.unit
@@ -70,6 +116,21 @@ def test_initializer_rejects_existing_namespace_target(tmp_path):
 
     with pytest.raises(FileExistsError, match="agent_smith_core"):
         ProjectInitializer(repo).plan(identity, force=True)
+
+
+@pytest.mark.unit
+def test_initializer_keep_initializer_allows_retained_initializer_paths(tmp_path):
+    repo = _minimal_template_repo(tmp_path)
+    identity = ProjectIdentity.from_inputs(project_name="Agent Smith")
+    initializer = ProjectInitializer(repo)
+
+    plan = initializer.plan(identity, keep_initializer=True)
+    findings = initializer.apply(plan, keep_initializer=True)
+
+    assert findings == ()
+    assert (repo / "lib" / "agent_smith_core" / "initializer").exists()
+    assert (repo / "tests" / "initializer").exists()
+    assert (repo / "scripts" / "init_project.py").exists()
 
 
 @pytest.mark.unit
@@ -110,14 +171,34 @@ def test_cairn_cli_new_creates_initialized_project(tmp_path, capsys):
     source = _minimal_template_repo(tmp_path / "source")
     target = tmp_path / "agent-smith"
 
-    status = cairn_main(["new", str(target), "--project-name", "Agent Smith", "--repo-root", str(source)])
+    status = cairn_main(
+        [
+            "new",
+            str(target),
+            "--project-name",
+            "Agent Smith",
+            "--app-port",
+            "18111",
+            "--frontend-port",
+            "15191",
+            "--postgres-port",
+            "55441",
+            "--redis-port",
+            "56391",
+            "--repo-root",
+            str(source),
+        ]
+    )
 
     output = capsys.readouterr()
 
     assert status == 0
     assert "Initialized Agent Smith" in output.out
+    assert "1. poetry install" in output.out
     assert (target / "lib" / "agent_smith_core").exists()
     assert not (target / "lib" / "cairn").exists()
+    assert "POSTGRES_PORT=55441" in (target / ".env.test").read_text()
+    assert "VITE_API_BASE_URL=http://127.0.0.1:18111" in (target / "frontend" / ".env.local").read_text()
     assert scan_forbidden_tokens(target) == ()
     assert (source / "lib" / "cairn").exists()
 
@@ -139,6 +220,8 @@ def test_current_repo_plan_includes_known_identity_surfaces():
     assert Path("src") / "routers" / "health.py" in paths
     assert Path("scripts") / "cli.py" in paths
     assert Path("scripts") / "generate.py" in paths
+    assert Path("docs") / "GENERATOR.md" in paths
+    assert Path("docs") / "FRONTEND.md" in paths
 
 
 def _minimal_template_repo(tmp_path: Path) -> Path:
@@ -156,7 +239,11 @@ def _minimal_template_repo(tmp_path: Path) -> Path:
         ),
     )
     _write(repo / "README.md", "# Cairn\n\nFastAPI template for apps.\n")
-    _write(repo / "docs" / "GENERATOR.md", "The `cairn` console command scaffolds resources.\n")
+    _write(
+        repo / "docs" / "GENERATOR.md",
+        "The `cairn` console command scaffolds resources from lib/cairn/generator/.\n",
+    )
+    _write(repo / "docs" / "FRONTEND.md", "Cairn frontend docs mention frontend/.env.example.\n")
     _write(repo / "db" / "PATTERNS.md", "Patterns from the template source.\n")
     _write(repo / "assets" / "static" / "logo.svg", "<svg><title>Cairn Logo</title></svg>\n")
     _write(
@@ -200,6 +287,9 @@ def _minimal_template_repo(tmp_path: Path) -> Path:
     )
     _write(repo / "lib" / "cairn" / "__init__.py", '"""Cairn template utilities."""\n')
     _write(
+        repo / "lib" / "cairn" / "initializer" / "__init__.py", "from lib.cairn.initializer import ProjectIdentity\n"
+    )
+    _write(
         repo / "lib" / "cairn" / "paths.py",
         "def get_repo_root(_path):\n    return None\n",
     )
@@ -237,6 +327,17 @@ def _minimal_template_repo(tmp_path: Path) -> Path:
                 "def test_cairn_cli_dispatches_generate_resource():",
                 "    status = cairn_main(['generate'])",
                 "    assert \"generate: Field 'id' is managed by Cairn base models\"",
+            ]
+        ),
+    )
+    _write(
+        repo / "tests" / "conftest.py",
+        "\n".join(
+            [
+                '"""Pytest fixtures for template users.',
+                "NOTE: These fixtures are intentionally unused by the template's own tests.",
+                "When you clone this template and build your application, USE THESE FIXTURES.",
+                '"""',
             ]
         ),
     )

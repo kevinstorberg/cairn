@@ -9,7 +9,21 @@ FORBIDDEN_TOKENS = (
     "cairn",
     "FastAPI template",
     "TEMPLATE INFRASTRUCTURE",
+    "TEMPLATE EXAMPLE",
+    "Template fixture",
+    "Template utility",
     "template users",
+    "template's own tests",
+    "template's example routes",
+    "template itself",
+    "template source",
+    "template WebSocket route",
+    "template default",
+    "template tests",
+    "template fixtures",
+    "clone this template",
+    "When you clone this template",
+    "unused by the template",
 )
 
 TEXT_SUFFIXES = {
