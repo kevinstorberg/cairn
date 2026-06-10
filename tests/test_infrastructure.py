@@ -176,7 +176,7 @@ def test_ci_runs_frontend_checks():
 
     assert setup_node["with"]["node-version"] == "22"
     assert setup_node["with"]["cache-dependency-path"] == "frontend/package-lock.json"
-    assert "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" in commands
+    assert "poetry sync --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" in commands
     assert all("embeddings" not in command for command in commands)
     assert "npm --prefix frontend ci" in commands
     assert "npm --prefix frontend run check" in commands
@@ -216,7 +216,7 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
 
     assert any(step.get("run") == "make lock-check" for step in lock_steps)
     assert any(
-        "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" == command
+        "poetry sync --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" == command
         for command in vulnerability_commands
     )
     assert all("embeddings" not in command for command in vulnerability_commands)
