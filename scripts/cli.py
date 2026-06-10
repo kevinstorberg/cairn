@@ -2,16 +2,21 @@ import argparse
 import sys
 
 from scripts.generate import GenerateScript
+from scripts.init_project import InitProjectScript
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cairn")
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("generate", help="Generate Cairn application artifacts", add_help=False)
+    subcommands.add_parser("init", help="Initialize this template as an application", add_help=False)
+    subcommands.add_parser("new", help="Create and initialize a new application", add_help=False)
     args, remainder = parser.parse_known_args(argv if argv is not None else sys.argv[1:])
 
     if args.command == "generate":
         return GenerateScript().execute(remainder)
+    if args.command in {"init", "new"}:
+        return InitProjectScript().execute([args.command, *remainder])
     raise ValueError(f"Unknown command: {args.command}")
 
 
