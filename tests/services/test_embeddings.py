@@ -90,6 +90,14 @@ def test_get_model_loads_sentence_transformer_once(monkeypatch):
     assert created_models == ["fake-embedding-model"]
 
 
+def test_get_model_reports_missing_optional_dependency(monkeypatch):
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+    service = EmbeddingsService(model_name="fake-embedding-model")
+
+    with pytest.raises(RuntimeError, match="poetry install --with embeddings"):
+        service._get_model()
+
+
 def test_from_settings_uses_configured_embedding_model(monkeypatch):
     import config.loader
 

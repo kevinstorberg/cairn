@@ -147,7 +147,15 @@ def test_doctor_all_optional_dependencies_include_documentdb_driver(tmp_path):
     results = doctor.check_optional_backend_dependencies(all_optional=True)
 
     assert all(result.status == "pass" for result in results)
-    assert {"boto3", "langgraph.checkpoint.postgres", "pgvector", "pinecone", "pymongo", "redis"} <= checked_modules
+    assert {
+        "boto3",
+        "langgraph.checkpoint.postgres",
+        "pgvector",
+        "pinecone",
+        "pymongo",
+        "redis",
+        "sentence_transformers",
+    } <= checked_modules
 
 
 def test_doctor_warns_for_production_jobs_without_distributed_lock(tmp_path):

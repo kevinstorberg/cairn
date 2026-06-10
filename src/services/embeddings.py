@@ -36,7 +36,13 @@ class EmbeddingsService:
 
     def _get_model(self):
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as e:
+                raise RuntimeError(
+                    "EmbeddingsService requires the optional embeddings dependency group. "
+                    "Install it with `poetry install --with embeddings`."
+                ) from e
 
             self._model = SentenceTransformer(self._model_name)
         return self._model

@@ -177,6 +177,7 @@ def test_ci_runs_frontend_checks():
     assert setup_node["with"]["node-version"] == "22"
     assert setup_node["with"]["cache-dependency-path"] == "frontend/package-lock.json"
     assert "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" in commands
+    assert all("embeddings" not in command for command in commands)
     assert "npm --prefix frontend ci" in commands
     assert "npm --prefix frontend run check" in commands
 
@@ -218,6 +219,7 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
         "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" == command
         for command in vulnerability_commands
     )
+    assert all("embeddings" not in command for command in vulnerability_commands)
     assert any(command == "make audit" for command in vulnerability_commands)
     assert any(command == "npm --prefix frontend ci" for command in vulnerability_commands)
     assert any(command == "make frontend-audit" for command in vulnerability_commands)
@@ -289,6 +291,17 @@ def test_pinecone_optional_group_uses_modern_package():
 
     assert "pinecone" in pinecone_dependencies
     assert "pinecone-client" not in pinecone_dependencies
+
+
+@pytest.mark.unit
+def test_embeddings_dependency_is_explicit_opt_in_group():
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    default_dependencies = pyproject["tool"]["poetry"]["dependencies"]
+    embeddings_group = pyproject["tool"]["poetry"]["group"]["embeddings"]
+
+    assert "sentence-transformers" not in default_dependencies
+    assert embeddings_group["optional"] is True
+    assert "sentence-transformers" in embeddings_group["dependencies"]
 
 
 @pytest.mark.unit
