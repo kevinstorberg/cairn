@@ -63,7 +63,11 @@ def test_initializer_rewrites_identity_and_removes_forbidden_branding(tmp_path):
     assert '"app": "agent-smith"' in (repo / "src" / "routers" / "health.py").read_text()
     assert "poetry install" in (repo / "README.md").read_text()
     assert "agent-smith generate resource project name:string" in (repo / "README.md").read_text()
-    assert "docs/GENERATOR.md" in (repo / "README.md").read_text()
+    readme = (repo / "README.md").read_text()
+    assert "docs/GENERATOR.md" in readme
+    assert "npm --prefix frontend run dev -- --port 5173" in readme
+    assert "http://localhost:5173/ui/" in readme
+    _assert_initialized_readme_source_of_truth(readme, core_path="lib/agent_smith_core")
     generator_doc = (repo / "docs" / "GENERATOR.md").read_text()
     assert "The `agent-smith` console command scaffolds resources" in generator_doc
     assert "lib/agent_smith_core/generator/" in generator_doc
@@ -199,6 +203,10 @@ def test_cairn_cli_new_creates_initialized_project(tmp_path, capsys):
     assert not (target / "lib" / "cairn").exists()
     assert "POSTGRES_PORT=55441" in (target / ".env.test").read_text()
     assert "VITE_API_BASE_URL=http://127.0.0.1:18111" in (target / "frontend" / ".env.local").read_text()
+    target_readme = (target / "README.md").read_text()
+    assert "npm --prefix frontend run dev -- --port 15191" in target_readme
+    assert "http://localhost:15191/ui/" in target_readme
+    _assert_initialized_readme_source_of_truth(target_readme, core_path="lib/agent_smith_core")
     assert scan_forbidden_tokens(target) == ()
     assert (source / "lib" / "cairn").exists()
 
@@ -347,3 +355,31 @@ def _minimal_template_repo(tmp_path: Path) -> Path:
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content if content.endswith("\n") else f"{content}\n", encoding="utf-8")
+
+
+def _assert_initialized_readme_source_of_truth(readme: str, *, core_path: str) -> None:
+    required = {
+        "docs/REPOSITORIES_SERVICES.md",
+        "docs/AUTHORIZATION.md",
+        "docs/JOBS.md",
+        "docs/ADMIN_DEBUG.md",
+        "docs/GENERATOR.md",
+        "src/graphs/endpoints.py",
+        "src/jobs/",
+        "src/diagnostics/",
+        f"{core_path}/generator/",
+        "docs/FRONTEND.md",
+        "docs/EXTENSIONS.md",
+        "docs/PREFLIGHT.md",
+        "frontend/src/shared/api/",
+        "frontend/src/App.tsx",
+        "frontend/vite.config.ts",
+        "src/frontend/static.py",
+        "src/extensions/",
+        "src/operations/preflight.py",
+        "scripts/preflight.py",
+        "build_config_summary_graph()",
+    }
+
+    missing = sorted(item for item in required if item not in readme)
+    assert missing == []

@@ -1,3 +1,4 @@
+import json
 import tomllib
 from pathlib import Path
 
@@ -377,10 +378,13 @@ def test_preflight_docs_reference_source_of_truth_modules():
 @pytest.mark.unit
 def test_frontend_vite_config_has_bundle_review_threshold():
     vite_config = (Path(__file__).parents[1] / "frontend" / "vite.config.ts").read_text()
-    package = (Path(__file__).parents[1] / "frontend" / "package.json").read_text()
+    package_path = Path(__file__).parents[1] / "frontend" / "package.json"
+    package = package_path.read_text()
+    scripts = json.loads(package)["scripts"]
 
     assert "chunkSizeWarningLimit" in vite_config
     assert "manualChunks" in vite_config
+    assert scripts["dev"] == "vite"
     assert "bundle:report" in package
     assert "bundle-check" in package
     assert "npm run bundle-check" in package

@@ -58,6 +58,12 @@ class TestLoadDefaultConfig:
         assert config.security.rate_limit_requests == 120
         assert config.security.max_request_body_bytes == 10485760
         assert config.security.headers.content_type_options == "nosniff"
+
+    def test_schema_defaults_are_explicit(self):
+        from config.models import DefaultConfig
+
+        config = DefaultConfig()
+
         assert config.frontend.enabled is False
         assert config.frontend.static_dir == "frontend/dist"
         assert config.frontend.mount_path == "/ui"
@@ -71,6 +77,32 @@ class TestLoadDefaultConfig:
         c1 = load_default_config()
         c2 = load_default_config()
         assert c1 is c2
+
+    def test_loads_app_local_frontend_enabled_config(self, monkeypatch, tmp_path):
+        from config import loader
+        from config.loader import load_default_config
+
+        (tmp_path / "default.yaml").write_text(
+            "\n".join(
+                [
+                    "frontend:",
+                    "  enabled: true",
+                    "  static_dir: frontend/dist",
+                    "  mount_path: /ui",
+                    "  spa_fallback: true",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(loader, "_CONFIG_DIR", tmp_path)
+        load_default_config.cache_clear()
+
+        try:
+            config = load_default_config()
+        finally:
+            load_default_config.cache_clear()
+
+        assert config.frontend.enabled is True
 
 
 @pytest.mark.unit

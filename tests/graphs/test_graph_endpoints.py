@@ -105,6 +105,40 @@ async def test_missing_graph_config_uses_configuration_error_envelope():
 
 
 @pytest.mark.integration
+async def test_missing_graph_prompt_uses_configuration_error_envelope():
+    def graph_builder(graph_name, *, scope):
+        raise FileNotFoundError("Prompt file not found: config/prompts/missing.txt")
+
+    client = create_client(graph_builder)
+
+    async with client:
+        response = await client.post("/graphs/workflow/invoke", json={"state": {}})
+
+    error = response.json()["error"]
+    assert response.status_code == 400
+    assert error["code"] == "graph_configuration_error"
+    assert "config/prompts/missing.txt" in error["message"]
+
+
+@pytest.mark.integration
+async def test_stream_build_configuration_error_emits_sse_error_event():
+    def graph_builder(graph_name, *, scope):
+        raise FileNotFoundError("Prompt file not found: config/prompts/missing.txt")
+
+    client = create_client(graph_builder)
+
+    async with client:
+        response = await client.post("/graphs/workflow/stream", json={"state": {}})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert (
+        'event: error\ndata: {"error": {"code": "graph_configuration_error", '
+        '"message": "Prompt file not found: config/prompts/missing.txt"}}'
+    ) in response.text
+
+
+@pytest.mark.integration
 async def test_graph_runtime_exception_uses_error_envelope():
     runtime = FakeGraphRuntime(invoke_error=RuntimeError("provider failed"))
     client = create_client(lambda graph_name, *, scope: runtime)

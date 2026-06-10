@@ -9,6 +9,15 @@ def test_load_prompt_reads_txt_file_and_strips_whitespace(monkeypatch, tmp_path)
     monkeypatch.setattr(loader, "_PROMPTS_DIR", tmp_path)
 
     assert loader.load_prompt("system") == "You are a useful assistant."
+    assert loader.load_prompt("system.txt") == "You are a useful assistant."
+
+
+@pytest.mark.parametrize("name", ["", " ", ".", "..", "../system", "nested/system", r"nested\system", "/tmp/system"])
+def test_load_prompt_rejects_invalid_prompt_names(monkeypatch, tmp_path, name):
+    monkeypatch.setattr(loader, "_PROMPTS_DIR", tmp_path)
+
+    with pytest.raises(ValueError, match="Prompt name"):
+        loader.load_prompt(name)
 
 
 def test_load_prompt_raises_for_missing_prompt(monkeypatch, tmp_path):
