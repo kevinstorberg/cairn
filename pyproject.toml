@@ -42,9 +42,9 @@ nest-asyncio = "^1.6.0"
 langchain-core = "^1.4.0"
 langchain-openai = "^1.2.2"
 langchain-anthropic = "^1.4.4"
-sentence-transformers = ">=3.0.0"
 pyjwt = "^2.8"
 langchain = "^1.1.0"
+numpy = "^2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
@@ -90,6 +90,12 @@ optional = true
 
 [tool.poetry.group.graph-postgres.dependencies]
 langgraph-checkpoint-postgres = "^3.1.0"
+
+[tool.poetry.group.embeddings]
+optional = true
+
+[tool.poetry.group.embeddings.dependencies]
+sentence-transformers = ">=3.0.0"
 
 [build-system]
 requires = ["poetry-core"]

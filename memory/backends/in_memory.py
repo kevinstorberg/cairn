@@ -1,8 +1,7 @@
 """In-memory vector similarity backend.
 
 Provides a simple numpy-based vector store suitable for development and testing.
-For production-scale vector search, switch to pgvector or Pinecone backends,
-or use faiss-cpu directly (available as a project dependency).
+For production-scale vector search, switch to pgvector or Pinecone backends.
 """
 
 import numpy as np

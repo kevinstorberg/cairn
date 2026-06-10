@@ -25,10 +25,11 @@ checkpoint:
 Use `llm.provider: fake` for deterministic local/manual validation without
 cloud credentials. Use `openai` or `anthropic` for real model calls.
 
-The built-in runtime kind is `react`. `runtime.prompt` loads
-`config/prompts/{name}.txt`. `checkpoint.backend` supports `none`, `memory`, and
-`postgres`; Postgres checkpointing requires the optional `graph-postgres`
-dependency group.
+The built-in runtime kind is `react`. `runtime.prompt` loads a prompt from
+`config/prompts/`; use either the basename (`system_instructions`) or the
+`.txt` filename (`system_instructions.txt`). `checkpoint.backend` supports
+`none`, `memory`, and `postgres`; Postgres checkpointing requires the optional
+`graph-postgres` dependency group.
 
 The legacy `checkpointing: true` flag still maps to memory checkpointing.
 

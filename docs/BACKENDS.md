@@ -58,6 +58,11 @@ The same pattern exists for `CacheConfig` and `MemoryConfig`.
 Optional dependency groups are defined in [pyproject.toml](../pyproject.toml).
 Use the group names there instead of copying package lists into docs.
 
+The embeddings infrastructure is intentionally opt-in through the `embeddings`
+dependency group. `src/services/embeddings.py` loads `sentence-transformers`
+lazily when an app actually calls the service, so API-only projects and default
+security audits do not install the local ML runtime.
+
 ## Backend Notes
 
 - In-memory memory and cache backends are local-process state. They are good for
@@ -69,6 +74,8 @@ Use the group names there instead of copying package lists into docs.
   memory table on first use. Local Compose defaults to a pgvector-enabled
   Postgres image through `POSTGRES_IMAGE`.
 - Pinecone memory requires `PINECONE_API_KEY` and `PINECONE_INDEX_NAME`.
+- Local embedding models require installing the optional `embeddings` dependency
+  group before using `EmbeddingsService`.
 - Local storage is only safe for single-node deployments. Use an object store for
   multi-node or durable file storage.
 - S3 storage requires `S3_BUCKET` and the optional `aws` dependency group.

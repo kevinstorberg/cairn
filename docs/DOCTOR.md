@@ -24,6 +24,7 @@ Provider credentials are warnings by default so a local app can bootstrap withou
 paid API keys. `--strict` or `--require-provider-credentials` turns missing
 selected LLM credentials into failures.
 
-`--all-optional` checks every optional backend dependency group declared in
-[pyproject.toml](../pyproject.toml), including provider utilities that are not
-selected by the default YAML config.
+`--all-optional` checks every optional integration dependency group declared in
+[pyproject.toml](../pyproject.toml), including provider utilities and the
+opt-in local embeddings runtime even when they are not selected by the default
+YAML config.

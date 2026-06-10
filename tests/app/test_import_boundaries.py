@@ -22,6 +22,7 @@ blocked = [
     "pinecone",
     "pymongo",
     "redis",
+    "sentence_transformers",
 ]
 print(json.dumps([module for module in blocked if module in sys.modules]))
 """

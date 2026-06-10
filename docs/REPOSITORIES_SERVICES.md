@@ -58,3 +58,8 @@ class ProjectService(ApplicationService):
 
 Keep these services separate from `src.services.base`, which is for
 lifecycle-managed infrastructure services such as embeddings.
+
+`EmbeddingsService` is registered as infrastructure, but its local model runtime
+is optional. Install the `embeddings` dependency group from
+[pyproject.toml](../pyproject.toml) before using that service in an app that
+needs local sentence-transformer embeddings.

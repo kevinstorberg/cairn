@@ -29,3 +29,9 @@ make security
 boundary for network-backed vulnerability scanning and full pre-commit execution.
 The scanner and hook runner are development dependencies, so CI and local runs
 use the same lockfile-managed tool versions.
+
+The default Python audit installs the core app plus the optional infrastructure
+backend groups used by the template checks. The local ML embeddings runtime is a
+separate opt-in group in [../pyproject.toml](../pyproject.toml); applications
+that enable local `EmbeddingsService` usage should add that group to their own
+install and audit policy.

@@ -45,7 +45,13 @@ def create_graph_router(
 
     @router.post("/{graph_name}/stream")
     async def stream_graph(graph_name: str, payload: GraphRunRequest):
-        runtime = _build_runtime(graph_builder, graph_name, payload.context)
+        try:
+            runtime = _build_runtime(graph_builder, graph_name, payload.context)
+        except APIException as exc:
+            return StreamingResponse(
+                _single_error_event(exc),
+                media_type="text/event-stream",
+            )
         return StreamingResponse(
             _stream_events(runtime, payload),
             media_type="text/event-stream",
@@ -59,6 +65,8 @@ def _build_runtime(graph_builder: GraphRuntimeBuilder, graph_name: str, context:
         return graph_builder(graph_name, scope=context)
     except APIException:
         raise
+    except FileNotFoundError as exc:
+        raise APIException(status_code=400, code="graph_configuration_error", message=str(exc)) from exc
     except ValueError as exc:
         raise APIException(status_code=400, code="graph_configuration_error", message=str(exc)) from exc
 
@@ -77,6 +85,18 @@ async def _stream_events(runtime: GraphRuntime, payload: GraphRunRequest) -> Asy
                 }
             },
         )
+
+
+async def _single_error_event(exc: APIException) -> AsyncIterator[str]:
+    yield _sse(
+        "error",
+        {
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+            }
+        },
+    )
 
 
 def _runtime_error(exc: Exception) -> APIException:

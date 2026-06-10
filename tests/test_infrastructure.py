@@ -1,3 +1,4 @@
+import json
 import tomllib
 from pathlib import Path
 
@@ -175,7 +176,8 @@ def test_ci_runs_frontend_checks():
 
     assert setup_node["with"]["node-version"] == "22"
     assert setup_node["with"]["cache-dependency-path"] == "frontend/package-lock.json"
-    assert "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" in commands
+    assert "poetry sync --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" in commands
+    assert all("embeddings" not in command for command in commands)
     assert "npm --prefix frontend ci" in commands
     assert "npm --prefix frontend run check" in commands
 
@@ -214,9 +216,10 @@ def test_security_workflow_checks_lockfile_vulnerabilities_and_secrets():
 
     assert any(step.get("run") == "make lock-check" for step in lock_steps)
     assert any(
-        "poetry install --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" == command
+        "poetry sync --no-interaction --with aws,redis,pinecone,pgvector,documentdb,graph-postgres" == command
         for command in vulnerability_commands
     )
+    assert all("embeddings" not in command for command in vulnerability_commands)
     assert any(command == "make audit" for command in vulnerability_commands)
     assert any(command == "npm --prefix frontend ci" for command in vulnerability_commands)
     assert any(command == "make frontend-audit" for command in vulnerability_commands)
@@ -288,6 +291,17 @@ def test_pinecone_optional_group_uses_modern_package():
 
     assert "pinecone" in pinecone_dependencies
     assert "pinecone-client" not in pinecone_dependencies
+
+
+@pytest.mark.unit
+def test_embeddings_dependency_is_explicit_opt_in_group():
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    default_dependencies = pyproject["tool"]["poetry"]["dependencies"]
+    embeddings_group = pyproject["tool"]["poetry"]["group"]["embeddings"]
+
+    assert "sentence-transformers" not in default_dependencies
+    assert embeddings_group["optional"] is True
+    assert "sentence-transformers" in embeddings_group["dependencies"]
 
 
 @pytest.mark.unit
@@ -377,10 +391,13 @@ def test_preflight_docs_reference_source_of_truth_modules():
 @pytest.mark.unit
 def test_frontend_vite_config_has_bundle_review_threshold():
     vite_config = (Path(__file__).parents[1] / "frontend" / "vite.config.ts").read_text()
-    package = (Path(__file__).parents[1] / "frontend" / "package.json").read_text()
+    package_path = Path(__file__).parents[1] / "frontend" / "package.json"
+    package = package_path.read_text()
+    scripts = json.loads(package)["scripts"]
 
     assert "chunkSizeWarningLimit" in vite_config
     assert "manualChunks" in vite_config
+    assert scripts["dev"] == "vite"
     assert "bundle:report" in package
     assert "bundle-check" in package
     assert "npm run bundle-check" in package
